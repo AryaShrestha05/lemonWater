@@ -63,3 +63,54 @@ describe('codeMarks', () => {
     expect(codeMarks(graph, 'nope.ts')).toEqual([])
   })
 })
+
+import { lineNotes } from '../../src/renderer/src/code/codeMarks'
+
+describe('lineNotes', () => {
+  const sym = (name: string, line: number) => ({ name, targetPos: { line: 1, col: 0, length: name.length }, refs: [{ line, col: 2, length: name.length }] })
+  const notesGraph: ProjectGraph = {
+    root: '/x',
+    nodes: [
+      file('src/App.tsx', [
+        def('App', 1, { usedBy: ['src/main.tsx'] }),
+        def('shared', 2, { usedBy: ['src/z.ts', 'src/main.tsx', 'src/b.ts'] }),
+        def('oldThing', 3, { notUsedAnywhere: true }),
+        def('both', 5, { notUsedAnywhere: true })
+      ])
+    ],
+    edges: [
+      { kind: 'import', source: 'src/App.tsx', target: 'lib/api.ts', symbols: [sym('fetchUser', 5), sym('other', 8)] },
+      { kind: 'import', source: 'src/App.tsx', target: 'lib/db.ts', symbols: [sym('query', 8)] }
+    ]
+  }
+  const notes = lineNotes(notesGraph, 'src/App.tsx')
+  const at = (line: number) => notes.filter((n) => n.line === line)
+
+  test('outgoing call to one file', () => {
+    expect(lineNotes({ ...notesGraph, nodes: [file('src/App.tsx')] }, 'src/App.tsx').find((n) => n.line === 5)).toEqual({
+      line: 5,
+      text: '→ lib/api.ts',
+      tone: 'out'
+    })
+  })
+
+  test('two targets on one line', () => {
+    expect(at(8)).toEqual([{ line: 8, text: '→ lib/api.ts +1', tone: 'out' }])
+  })
+
+  test('definition used by one file', () => {
+    expect(at(1)).toEqual([{ line: 1, text: '← called by main.tsx', tone: 'in' }])
+  })
+
+  test('definition used by several files names the first sorted basename', () => {
+    expect(at(2)).toEqual([{ line: 2, text: '← called by b.ts +2', tone: 'in' }])
+  })
+
+  test('unused definition', () => {
+    expect(at(3)).toEqual([{ line: 3, text: '· not used anywhere', tone: 'unused' }])
+  })
+
+  test('one note per line, unused wins over out', () => {
+    expect(at(5)).toEqual([{ line: 5, text: '· not used anywhere', tone: 'unused' }])
+  })
+})

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { EditorState, type Range } from '@codemirror/state'
-import { Decoration, EditorView, lineNumbers, highlightActiveLine, type DecorationSet } from '@codemirror/view'
+import { Decoration, EditorView, WidgetType, lineNumbers, highlightActiveLine, type DecorationSet } from '@codemirror/view'
 import { javascript } from '@codemirror/lang-javascript'
 import { oneDark } from '@codemirror/theme-one-dark'
 import type { NodeId, Pos, ProjectGraph } from '../../../core/types'
 import ConnectionChips from './ConnectionChips'
-import { codeMarks, type CodeMark } from './codeMarks'
+import { codeMarks, lineNotes, type CodeMark, type LineNote } from './codeMarks'
 
 export interface CodePanelProps {
   graph: ProjectGraph
@@ -17,6 +17,27 @@ export interface CodePanelProps {
   /** A "uses" / "used by" chip was clicked. */
   onSelectFile: (id: NodeId) => void
   onClose: () => void
+}
+
+class NoteWidget extends WidgetType {
+  constructor(
+    readonly text: string,
+    readonly tone: LineNote['tone']
+  ) {
+    super()
+  }
+  eq(other: NoteWidget): boolean {
+    return other.text === this.text && other.tone === this.tone
+  }
+  toDOM(): HTMLElement {
+    const span = document.createElement('span')
+    span.className = `cm-lw-note cm-lw-note-${this.tone}`
+    span.textContent = this.text
+    return span
+  }
+  ignoreEvent(): boolean {
+    return true
+  }
 }
 
 const defMark = Decoration.mark({ class: 'cm-lw-def' })
@@ -34,7 +55,11 @@ const panelTheme = EditorView.theme(
     '.cm-lw-out, .cm-lw-out *': { color: '#a78bfa !important', cursor: 'pointer' },
     '.cm-lw-out': { textDecoration: 'underline dotted #a78bfa', textUnderlineOffset: '3px' },
     '.cm-lw-out:hover': { backgroundColor: 'rgba(167,139,250,.18)', borderRadius: '3px' },
-    '.cm-lw-flash': { backgroundColor: 'rgba(167,139,250,.22) !important' }
+    '.cm-lw-flash': { backgroundColor: 'rgba(167,139,250,.22) !important' },
+    '.cm-lw-note': { marginLeft: '2.5em', fontFamily: '-apple-system, system-ui, sans-serif', fontSize: '11px', userSelect: 'none' },
+    '.cm-lw-note-out': { color: '#6f6f7a' },
+    '.cm-lw-note-in': { color: '#34d399' },
+    '.cm-lw-note-unused': { color: '#8a8a94', fontStyle: 'italic', opacity: 0.8 }
   },
   { dark: true }
 )
@@ -49,8 +74,13 @@ function toRange(state: EditorState, pos: Pos): { from: number; to: number } | n
   return { from, to }
 }
 
-function buildDecorations(state: EditorState, marks: CodeMark[]): DecorationSet {
+function buildDecorations(state: EditorState, marks: CodeMark[], notes: LineNote[]): DecorationSet {
   const ranges: Range<Decoration>[] = []
+  for (const n of notes) {
+    if (n.line < 1 || n.line > state.doc.lines) continue
+    const widget = Decoration.widget({ widget: new NoteWidget(n.text, n.tone), side: 1 })
+    ranges.push(widget.range(state.doc.line(n.line).to))
+  }
   for (const m of marks) {
     const r = toRange(state, m.pos)
     if (!r) continue
@@ -67,6 +97,7 @@ export default function CodePanel({ graph, fileId, source, scrollTo, onNavigate,
   navigateRef.current = onNavigate
 
   const marks = useMemo(() => codeMarks(graph, fileId), [graph, fileId])
+  const notes = useMemo(() => lineNotes(graph, fileId), [graph, fileId])
 
   useEffect(() => {
     const el = hostRef.current
@@ -84,7 +115,7 @@ export default function CodePanel({ graph, fileId, source, scrollTo, onNavigate,
         javascript({ jsx: true, typescript: isTs }),
         oneDark,
         panelTheme,
-        EditorView.decorations.of((view) => buildDecorations(view.state, marks)),
+        EditorView.decorations.of((view) => buildDecorations(view.state, marks, notes)),
         EditorView.domEventHandlers({
           click: (event, view) => {
             const at = view.posAtCoords({ x: event.clientX, y: event.clientY })
@@ -106,7 +137,7 @@ export default function CodePanel({ graph, fileId, source, scrollTo, onNavigate,
       view.destroy()
       viewRef.current = null
     }
-  }, [source, fileId, marks])
+  }, [source, fileId, marks, notes])
 
   useEffect(() => {
     const view = viewRef.current
