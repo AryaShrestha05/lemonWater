@@ -71,4 +71,12 @@ describe('createLayout', () => {
     expect(nodes).toHaveLength(1)
     expect(Number.isFinite(nodes[0].x)).toBe(true)
   })
+
+  test('prewarmTicks 0 with initialPositions keeps the given positions', () => {
+    const g = synthetic()
+    const initialPositions = new Map(g.nodes.map((n, i) => [n.id, { x: i * 10, y: -i * 5 }]))
+    const { nodes, sim } = createLayout(g, { prewarmTicks: 0, initialPositions })
+    sim.stop()
+    for (const n of nodes) expect({ x: n.x, y: n.y }).toEqual(initialPositions.get(n.id))
+  })
 })

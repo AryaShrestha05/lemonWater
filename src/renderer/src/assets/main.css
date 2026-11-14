@@ -214,3 +214,19 @@ button.primary:hover {
 .chip:hover {
   filter: brightness(1.25);
 }
+
+.arranging {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  pointer-events: none;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.4;
+  }
+}

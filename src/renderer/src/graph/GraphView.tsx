@@ -1,10 +1,11 @@
 import 'pixi.js/unsafe-eval'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Application, Circle, Container, Graphics, Sprite, Text, type Texture } from 'pixi.js'
 import { Viewport } from 'pixi-viewport'
 import type { NodeId, ProjectGraph } from '../../../core/types'
 import { createLayout, type SimNode } from './layout'
 import { neighborhood, type Neighborhood } from './neighborhood'
+import { prewarmInWorker } from './prewarm'
 
 export interface GraphViewProps {
   graph: ProjectGraph
@@ -46,6 +47,7 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
   const selectedRef = useRef<NodeId | null>(selectedId)
   const onSelectRef = useRef(onSelect)
   const focusRef = useRef<(id: NodeId) => void>(() => {})
+  const [arranging, setArranging] = useState(true)
 
   selectedRef.current = selectedId
   onSelectRef.current = onSelect
@@ -56,20 +58,28 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
     let cancelled = false
     let cleanup: (() => void) | null = null
 
-    const app = new Application()
-    app
-      .init({ resizeTo: el, background: BG, antialias: true, autoDensity: true, resolution: window.devicePixelRatio || 1 })
-      .then(() => {
-        if (cancelled) {
-          app.destroy(true, { children: true, texture: true })
-          return
-        }
-        cleanup = mount(app, el)
-      })
+    setArranging(true)
+    // Layout prewarm runs in a worker (main-thread fallback if it fails). The Pixi app is only created
+    // after that, so a mount that's cancelled meanwhile (React StrictMode runs effects twice) never
+    // builds a renderer — destroying a just-initialized Pixi app races its first frame.
+    void (async () => {
+      const initialPositions = await prewarmInWorker(graph).catch(() => null)
+      if (cancelled) return
+      const app = new Application()
+      await app.init({ resizeTo: el, background: BG, antialias: true, autoDensity: true, resolution: window.devicePixelRatio || 1 })
+      if (cancelled) {
+        app.destroy(true, { children: true, texture: true })
+        return
+      }
+      cleanup = mount(app, el, initialPositions)
+      setArranging(false)
+    })()
 
-    function mount(app: Application, el: HTMLDivElement): () => void {
+    function mount(app: Application, el: HTMLDivElement, initialPositions: Map<NodeId, { x: number; y: number }> | null): () => void {
       el.appendChild(app.canvas)
-      const { nodes, links, sim } = createLayout(graph)
+      const { nodes, links, sim } = initialPositions
+        ? createLayout(graph, { prewarmTicks: 0, initialPositions })
+        : createLayout(graph)
 
       const viewport = new Viewport({
         screenWidth: el.clientWidth,
@@ -288,5 +298,10 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
     return () => cancelAnimationFrame(raf)
   }, [focusId])
 
-  return <div ref={hostRef} style={{ position: 'absolute', inset: 0 }} />
+  return (
+    <>
+      <div ref={hostRef} style={{ position: 'absolute', inset: 0 }} />
+      {arranging && <div className="arranging">Arranging…</div>}
+    </>
+  )
 }
