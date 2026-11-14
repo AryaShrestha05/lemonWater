@@ -86,3 +86,33 @@ button.primary:hover {
 .error {
   color: #f87171;
 }
+
+.workspace {
+  position: relative;
+  height: 100%;
+  display: flex;
+}
+.graph-area {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.topbar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 6px 6px 12px;
+  background: rgba(23, 23, 26, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+}
+.topbar .project {
+  font-weight: 600;
+}
+.topbar .stats {
+  color: var(--text-dim);
+}

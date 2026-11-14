@@ -48,7 +48,7 @@ export function createLayout(graph: ProjectGraph, opts: LayoutOptions = {}): Lay
 
   const nodes: SimNode[] = graph.nodes.map((n) => {
     const start = opts.initialPositions?.get(n.id)
-    const radius = n.kind === 'folder' ? 8 + 2 * Math.sqrt(childCount.get(n.id) ?? 0) : 4
+    const radius = n.kind === 'folder' ? 6 + 1.5 * Math.sqrt(childCount.get(n.id) ?? 0) : 4
     // NaN lets d3 seed its deterministic phyllotaxis spiral
     return { id: n.id, kind: n.kind, radius, x: start?.x ?? NaN, y: start?.y ?? NaN }
   })

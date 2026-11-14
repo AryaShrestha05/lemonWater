@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import type { Progress, ProjectGraph } from '../../core/types'
+import type { NodeId, Progress, ProjectGraph } from '../../core/types'
+import GraphView from './graph/GraphView'
 import { host } from './host'
 
 type State =
@@ -16,6 +17,7 @@ const PHASE_LABEL: Record<Progress['phase'], string> = {
 
 export default function App(): React.JSX.Element {
   const [state, setState] = useState<State>({ kind: 'idle' })
+  const [selectedId, setSelectedId] = useState<NodeId | null>(null)
 
   const openFolder = useCallback(async () => {
     const root = await host.pickFolder()
@@ -29,6 +31,7 @@ export default function App(): React.JSX.Element {
         setState((s) => (s.kind === 'loading' && s.root === root ? { ...s, progress } : s))
       )
       const hasFiles = graph.nodes.some((n) => n.kind === 'file')
+      setSelectedId(null)
       setState(hasFiles ? { kind: 'ready', graph } : { kind: 'empty', root })
     } catch (err) {
       setState({ kind: 'idle', error: err instanceof Error ? err.message : String(err) })
@@ -79,12 +82,19 @@ export default function App(): React.JSX.Element {
 
   const files = state.graph.nodes.filter((n) => n.kind === 'file').length
   const imports = state.graph.edges.filter((e) => e.kind === 'import').length
+  const rootName = state.graph.nodes.find((n) => n.id === '.')?.name ?? ''
   return (
-    <div className="center-screen">
-      <pre>
-        {files} files · {state.graph.nodes.length - files} folders · {imports} connections
-      </pre>
-      <button onClick={openFolder}>Open another folder</button>
+    <div className="workspace">
+      <div className="graph-area">
+        <GraphView graph={state.graph} selectedId={selectedId} onSelect={setSelectedId} />
+        <div className="topbar">
+          <span className="project">{rootName}</span>
+          <span className="stats">
+            {files} files · {imports} connections
+          </span>
+          <button onClick={openFolder}>Open folder…</button>
+        </div>
+      </div>
     </div>
   )
 }
