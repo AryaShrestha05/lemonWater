@@ -3,6 +3,7 @@ import type { NodeId, Pos, Progress, ProjectGraph } from '../../core/types'
 import CodePanel from './code/CodePanel'
 import GraphView from './graph/GraphView'
 import { host } from './host'
+import SearchBox from './search/SearchBox'
 
 type State =
   | { kind: 'idle'; error?: string }
@@ -151,6 +152,7 @@ function Workspace({ graph, onOpenFolder }: { graph: ProjectGraph; onOpenFolder:
           }}
           focusId={focusId}
         />
+        <SearchBox graph={graph} onPick={(id) => navigate(id, null)} />
         <div className="topbar">
           <span className="project">{rootName}</span>
           <span className="stats">
