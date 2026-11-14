@@ -1,5 +1,5 @@
 import 'pixi.js/unsafe-eval'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Application, Circle, Container, Graphics, Sprite, Text, type Texture } from 'pixi.js'
 import { Viewport } from 'pixi-viewport'
 import type { NodeId, ProjectGraph } from '../../../core/types'
@@ -19,7 +19,9 @@ export interface GraphViewProps {
 const BG = 0x1e1e22
 const FILE_COLOR = 0xc8c8d2
 const ROOT_COLOR = 0xe8e8ee
-const FOLDER_PALETTE = [0xf2b84b, 0x60a5fa, 0xf472b6, 0x34d399, 0xfb923c, 0xa78bfa, 0x22d3ee, 0xfacc15]
+const FOLDER_PALETTE = [
+  0xf2b84b, 0x60a5fa, 0xf472b6, 0x34d399, 0xfb923c, 0xa78bfa, 0x22d3ee, 0xfacc15
+]
 const CONTAINS_COLOR = 0x5a5a66
 const IMPORT_COLOR = 0xa78bfa
 const OUT_COLOR = 0xa78bfa
@@ -42,15 +44,23 @@ function folderColor(id: NodeId, topLevel: string[]): number {
   return FOLDER_PALETTE[(i < 0 ? 0 : i) % FOLDER_PALETTE.length]
 }
 
-export default function GraphView({ graph, selectedId, onSelect, focusId }: GraphViewProps): React.JSX.Element {
+export default function GraphView({
+  graph,
+  selectedId,
+  onSelect,
+  focusId
+}: GraphViewProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const selectedRef = useRef<NodeId | null>(selectedId)
   const onSelectRef = useRef(onSelect)
   const focusRef = useRef<(id: NodeId) => void>(() => {})
   const [arranging, setArranging] = useState(true)
 
-  selectedRef.current = selectedId
-  onSelectRef.current = onSelect
+  // the Pixi draw loop reads the latest props through these refs
+  useLayoutEffect(() => {
+    selectedRef.current = selectedId
+    onSelectRef.current = onSelect
+  })
 
   useEffect(() => {
     const el = hostRef.current
@@ -66,7 +76,13 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
       const initialPositions = await prewarmInWorker(graph).catch(() => null)
       if (cancelled) return
       const app = new Application()
-      await app.init({ resizeTo: el, background: BG, antialias: true, autoDensity: true, resolution: window.devicePixelRatio || 1 })
+      await app.init({
+        resizeTo: el,
+        background: BG,
+        antialias: true,
+        autoDensity: true,
+        resolution: window.devicePixelRatio || 1
+      })
       if (cancelled) {
         app.destroy(true, { children: true, texture: true })
         return
@@ -75,7 +91,11 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
       setArranging(false)
     })()
 
-    function mount(app: Application, el: HTMLDivElement, initialPositions: Map<NodeId, { x: number; y: number }> | null): () => void {
+    function mount(
+      app: Application,
+      el: HTMLDivElement,
+      initialPositions: Map<NodeId, { x: number; y: number }> | null
+    ): () => void {
       el.appendChild(app.canvas)
       const { nodes, links, sim } = initialPositions
         ? createLayout(graph, { prewarmTicks: 0, initialPositions })
@@ -87,7 +107,12 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
         events: app.renderer.events,
         ticker: app.ticker
       })
-      viewport.drag().pinch().wheel({ smooth: 4 }).decelerate({ friction: 0.92 }).clampZoom({ minScale: 0.08, maxScale: 6 })
+      viewport
+        .drag()
+        .pinch()
+        .wheel({ smooth: 4 })
+        .decelerate({ friction: 0.92 })
+        .clampZoom({ minScale: 0.08, maxScale: 6 })
       app.stage.addChild(viewport)
 
       const edgesG = new Graphics()
@@ -96,10 +121,20 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
       viewport.addChild(edgesG, nodeLayer, labelLayer)
 
       const circle = new Graphics().circle(0, 0, TEX_R).fill(0xffffff)
-      const tex: Texture = app.renderer.generateTexture({ target: circle, resolution: 2, antialias: true })
+      const tex: Texture = app.renderer.generateTexture({
+        target: circle,
+        resolution: 2,
+        antialias: true
+      })
       circle.destroy()
 
-      const topLevel = [...new Set(graph.nodes.filter((n) => n.kind === 'folder' && n.id !== '.').map((n) => n.id.split('/')[0]))].sort()
+      const topLevel = [
+        ...new Set(
+          graph.nodes
+            .filter((n) => n.kind === 'folder' && n.id !== '.')
+            .map((n) => n.id.split('/')[0])
+        )
+      ].sort()
       const nameOf = new Map(graph.nodes.map((n) => [n.id, n.name]))
 
       let hoverId: NodeId | null = null
@@ -154,10 +189,15 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
       // Initial framing
       let fitZoom = 1
       const fit = (): void => {
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity
         for (const n of nodes) {
-          minX = Math.min(minX, n.x); minY = Math.min(minY, n.y)
-          maxX = Math.max(maxX, n.x); maxY = Math.max(maxY, n.y)
+          minX = Math.min(minX, n.x)
+          minY = Math.min(minY, n.y)
+          maxX = Math.max(maxX, n.x)
+          maxY = Math.max(maxY, n.y)
         }
         const w = Math.max(maxX - minX, 200)
         const h = Math.max(maxY - minY, 200)
@@ -204,7 +244,8 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
           v.sprite.scale.set((v.sim.radius * (isActive ? 1.5 : 1)) / TEX_R)
           const showLabel =
             (nb && nb.nodes.has(v.sim.id)) ||
-            (!nb && (v.sim.kind === 'folder' ? zoom > fitZoom * 0.6 : zoom > fitZoom * LABEL_ZOOM_FACTOR))
+            (!nb &&
+              (v.sim.kind === 'folder' ? zoom > fitZoom * 0.6 : zoom > fitZoom * LABEL_ZOOM_FACTOR))
           v.label.visible = !!showLabel
           if (showLabel) {
             v.label.position.set(v.sim.x, v.sim.y + v.sim.radius + 3)
@@ -216,7 +257,12 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
 
         edgesG.clear()
         const w = 1 / Math.max(zoom, 0.35)
-        const strokeLinks = (pick: (i: number) => boolean, color: number, alpha: number, width: number): void => {
+        const strokeLinks = (
+          pick: (i: number) => boolean,
+          color: number,
+          alpha: number,
+          width: number
+        ): void => {
           let any = false
           for (let i = 0; i < links.length; i++) {
             if (!pick(i)) continue
@@ -227,16 +273,40 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
           if (any) edgesG.stroke({ color, alpha, width })
         }
         const lit = (i: number): boolean => !nb || nb.edges.has(graphEdgeIndex[i])
-        strokeLinks((i) => links[i].kind === 'contains' && lit(i), CONTAINS_COLOR, nb ? 0.55 : 0.4, w * 0.8)
-        strokeLinks((i) => links[i].kind === 'contains' && !lit(i), CONTAINS_COLOR, 0.4 * DIM, w * 0.8)
+        strokeLinks(
+          (i) => links[i].kind === 'contains' && lit(i),
+          CONTAINS_COLOR,
+          nb ? 0.55 : 0.4,
+          w * 0.8
+        )
+        strokeLinks(
+          (i) => links[i].kind === 'contains' && !lit(i),
+          CONTAINS_COLOR,
+          0.4 * DIM,
+          w * 0.8
+        )
         strokeLinks((i) => links[i].kind === 'import' && !lit(i), IMPORT_COLOR, 0.5 * DIM, w)
         if (!nb) {
           strokeLinks((i) => links[i].kind === 'import', IMPORT_COLOR, 0.5, w * 1.1)
         } else {
-          strokeLinks((i) => links[i].kind === 'import' && lit(i) && links[i].source.id === active, OUT_COLOR, 0.95, w * 1.8)
-          strokeLinks((i) => links[i].kind === 'import' && lit(i) && links[i].target.id === active, IN_COLOR, 0.95, w * 1.8)
           strokeLinks(
-            (i) => links[i].kind === 'import' && lit(i) && links[i].source.id !== active && links[i].target.id !== active,
+            (i) => links[i].kind === 'import' && lit(i) && links[i].source.id === active,
+            OUT_COLOR,
+            0.95,
+            w * 1.8
+          )
+          strokeLinks(
+            (i) => links[i].kind === 'import' && lit(i) && links[i].target.id === active,
+            IN_COLOR,
+            0.95,
+            w * 1.8
+          )
+          strokeLinks(
+            (i) =>
+              links[i].kind === 'import' &&
+              lit(i) &&
+              links[i].source.id !== active &&
+              links[i].target.id !== active,
             IMPORT_COLOR,
             0.6,
             w

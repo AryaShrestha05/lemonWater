@@ -26,7 +26,9 @@ describe('createResolver', () => {
 
   test('uses tsconfig paths', () => {
     const r = resolverFor({
-      'tsconfig.json': JSON.stringify({ compilerOptions: { baseUrl: '.', paths: { '@/*': ['src/*'] } } }),
+      'tsconfig.json': JSON.stringify({
+        compilerOptions: { baseUrl: '.', paths: { '@/*': ['src/*'] } }
+      }),
       'src/a.ts': '',
       'src/util.ts': ''
     })
@@ -35,7 +37,9 @@ describe('createResolver', () => {
 
   test('uses the nearest config for each file', () => {
     const r = resolverFor({
-      'frontend/jsconfig.json': JSON.stringify({ compilerOptions: { baseUrl: '.', paths: { '~/*': ['src/*'] } } }),
+      'frontend/jsconfig.json': JSON.stringify({
+        compilerOptions: { baseUrl: '.', paths: { '~/*': ['src/*'] } }
+      }),
       'frontend/src/a.js': '',
       'frontend/src/x.js': '',
       'backend/b.js': ''
@@ -46,7 +50,9 @@ describe('createResolver', () => {
 
   test('handles configs with extends and comments', () => {
     const r = resolverFor({
-      'base.json': JSON.stringify({ compilerOptions: { baseUrl: '.', paths: { '@/*': ['src/*'] } } }),
+      'base.json': JSON.stringify({
+        compilerOptions: { baseUrl: '.', paths: { '@/*': ['src/*'] } }
+      }),
       'tsconfig.json': '{\n  // a comment\n  "extends": "./base.json",\n}\n',
       'src/a.ts': '',
       'src/util.ts': ''
@@ -55,13 +61,21 @@ describe('createResolver', () => {
   })
 
   test('returns null for packages', () => {
-    const r = resolverFor({ 'src/a.ts': '', 'node_modules/react/index.js': '', 'node_modules/react/package.json': '{"name":"react","main":"index.js"}' })
+    const r = resolverFor({
+      'src/a.ts': '',
+      'node_modules/react/index.js': '',
+      'node_modules/react/package.json': '{"name":"react","main":"index.js"}'
+    })
     expect(r('react', 'src/a.ts')).toBeNull()
   })
 
   test('treats in-root workspace packages as internal', () => {
     const r = resolverFor(
-      { 'apps/web/a.js': '', 'packages/ui/index.js': '', 'packages/ui/package.json': '{"name":"@app/ui","main":"index.js"}' },
+      {
+        'apps/web/a.js': '',
+        'packages/ui/index.js': '',
+        'packages/ui/package.json': '{"name":"@app/ui","main":"index.js"}'
+      },
       (root) => {
         mkdirSync(join(root, 'node_modules/@app'), { recursive: true })
         symlinkSync(join(root, 'packages/ui'), join(root, 'node_modules/@app/ui'), 'dir')

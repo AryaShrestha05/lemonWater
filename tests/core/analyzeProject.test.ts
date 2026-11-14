@@ -3,16 +3,28 @@ import { analyzeProject } from '../../src/core/analyzeProject'
 import type { FileNode, ImportEdge, ProjectGraph, Progress } from '../../src/core/types'
 import { makeFixture } from '../helpers/fixture'
 
-const importEdges = (g: ProjectGraph): ImportEdge[] => g.edges.filter((e): e is ImportEdge => e.kind === 'import')
-const edge = (g: ProjectGraph, s: string, t: string) => importEdges(g).find((e) => e.source === s && e.target === t)
+const importEdges = (g: ProjectGraph): ImportEdge[] =>
+  g.edges.filter((e): e is ImportEdge => e.kind === 'import')
+const edge = (g: ProjectGraph, s: string, t: string) =>
+  importEdges(g).find((e) => e.source === s && e.target === t)
 const file = (g: ProjectGraph, id: string) => g.nodes.find((n) => n.id === id) as FileNode
-const defOf = (g: ProjectGraph, id: string, name: string) => file(g, id).definitions.find((d) => d.name === name)!
+const defOf = (g: ProjectGraph, id: string, name: string) =>
+  file(g, id).definitions.find((d) => d.name === name)!
 
 describe('analyzeProject', () => {
   test('folder nodes and contains edges', () => {
     const g = analyzeProject(makeFixture({ 'src/a.ts': '' }))
-    expect(g.nodes.map((n) => [n.id, n.kind]).sort()).toEqual([['.', 'folder'], ['src', 'folder'], ['src/a.ts', 'file']])
-    expect(g.edges.filter((e) => e.kind === 'contains').map((e) => `${e.source}>${e.target}`).sort()).toEqual(['.>src', 'src>src/a.ts'])
+    expect(g.nodes.map((n) => [n.id, n.kind]).sort()).toEqual([
+      ['.', 'folder'],
+      ['src', 'folder'],
+      ['src/a.ts', 'file']
+    ])
+    expect(
+      g.edges
+        .filter((e) => e.kind === 'contains')
+        .map((e) => `${e.source}>${e.target}`)
+        .sort()
+    ).toEqual(['.>src', 'src>src/a.ts'])
     expect(file(g, 'src/a.ts')).toMatchObject({ name: 'a.ts', parent: 'src', parsed: true })
   })
 
@@ -26,7 +38,13 @@ describe('analyzeProject', () => {
     const e = importEdges(g).filter((x) => x.source === 'src/App.tsx')
     expect(e).toHaveLength(1)
     expect(e[0].target).toBe('src/api.ts')
-    expect(e[0].symbols).toEqual([{ name: 'fetchUser', targetPos: { line: 2, col: 16, length: 9 }, refs: [{ line: 2, col: 0, length: 9 }] }])
+    expect(e[0].symbols).toEqual([
+      {
+        name: 'fetchUser',
+        targetPos: { line: 2, col: 16, length: 9 },
+        refs: [{ line: 2, col: 0, length: 9 }]
+      }
+    ])
   })
 
   test('merges multiple imports of the same target', () => {
@@ -42,7 +60,9 @@ describe('analyzeProject', () => {
   })
 
   test('side-effect import gives an edge with no symbols', () => {
-    const g = analyzeProject(makeFixture({ 'polyfill.js': 'globalThis.x = 1', 'main.js': "import './polyfill'" }))
+    const g = analyzeProject(
+      makeFixture({ 'polyfill.js': 'globalThis.x = 1', 'main.js': "import './polyfill'" })
+    )
     expect(edge(g, 'main.js', 'polyfill.js')?.symbols).toEqual([])
   })
 
@@ -110,14 +130,20 @@ describe('analyzeProject', () => {
   test('CommonJS require links to module.exports definitions', () => {
     const g = analyzeProject(
       makeFixture({
-        'backend/src/services/user.service.js': 'function getUser() {}\nmodule.exports = { getUser }',
-        'backend/src/routes/users.js': "const express = require('express')\nconst router = express.Router()\nmodule.exports = router",
+        'backend/src/services/user.service.js':
+          'function getUser() {}\nmodule.exports = { getUser }',
+        'backend/src/routes/users.js':
+          "const express = require('express')\nconst router = express.Router()\nmodule.exports = router",
         'backend/src/server.js':
           "const users = require('./routes/users')\nconst { getUser } = require('./services/user.service')\napp.use(users)\ngetUser()"
       })
     )
-    expect(edge(g, 'backend/src/server.js', 'backend/src/routes/users.js')?.symbols[0].name).toBe('router')
-    expect(edge(g, 'backend/src/server.js', 'backend/src/services/user.service.js')?.symbols[0].name).toBe('getUser')
+    expect(edge(g, 'backend/src/server.js', 'backend/src/routes/users.js')?.symbols[0].name).toBe(
+      'router'
+    )
+    expect(
+      edge(g, 'backend/src/server.js', 'backend/src/services/user.service.js')?.symbols[0].name
+    ).toBe('getUser')
   })
 
   test('a whole module object passed around marks all its exports used', () => {
@@ -129,7 +155,10 @@ describe('analyzeProject', () => {
         'other.ts': "import * as util from './util'\nregister(util)"
       })
     )
-    expect(defOf(g, 'claude.js', 'create')).toMatchObject({ usedBy: ['providers.js'], notUsedAnywhere: false })
+    expect(defOf(g, 'claude.js', 'create')).toMatchObject({
+      usedBy: ['providers.js'],
+      notUsedAnywhere: false
+    })
     expect(defOf(g, 'claude.js', 'MODEL').notUsedAnywhere).toBe(false)
     expect(defOf(g, 'util.ts', 'a').notUsedAnywhere).toBe(false)
     expect(edge(g, 'providers.js', 'claude.js')?.symbols).toEqual([])
@@ -138,11 +167,15 @@ describe('analyzeProject', () => {
   test('usedBy and notUsedAnywhere', () => {
     const g = analyzeProject(
       makeFixture({
-        'src/api.ts': 'export function fetchUser() {}\nexport function oldThing() {}\nfunction helper() {}\nexport const LIMIT = 3\nexport function internal() { return LIMIT }',
+        'src/api.ts':
+          'export function fetchUser() {}\nexport function oldThing() {}\nfunction helper() {}\nexport const LIMIT = 3\nexport function internal() { return LIMIT }',
         'src/App.tsx': "import { fetchUser } from './api'\nfetchUser()"
       })
     )
-    expect(defOf(g, 'src/api.ts', 'fetchUser')).toMatchObject({ usedBy: ['src/App.tsx'], notUsedAnywhere: false })
+    expect(defOf(g, 'src/api.ts', 'fetchUser')).toMatchObject({
+      usedBy: ['src/App.tsx'],
+      notUsedAnywhere: false
+    })
     expect(defOf(g, 'src/api.ts', 'oldThing').notUsedAnywhere).toBe(true)
     expect(defOf(g, 'src/api.ts', 'helper').notUsedAnywhere).toBe(false)
     expect(defOf(g, 'src/api.ts', 'LIMIT').notUsedAnywhere).toBe(false)
@@ -151,8 +184,10 @@ describe('analyzeProject', () => {
   test('suppresses the note for framework conventions and entry defaults', () => {
     const g = analyzeProject(
       makeFixture({
-        'pages/index.tsx': 'export function getServerSideProps() {}\nexport default function Home() { return <div/> }',
-        'app/dash/page.tsx': 'export const metadata = {}\nexport default function Page() { return <div/> }',
+        'pages/index.tsx':
+          'export function getServerSideProps() {}\nexport default function Home() { return <div/> }',
+        'app/dash/page.tsx':
+          'export const metadata = {}\nexport default function Page() { return <div/> }',
         'app/api/x/route.ts': 'export function GET() {}',
         'src/main.tsx': 'export default function main() {}\nexport function unusedNamed() {}'
       })

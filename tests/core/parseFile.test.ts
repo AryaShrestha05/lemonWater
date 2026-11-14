@@ -13,9 +13,15 @@ describe('parseFile definitions', () => {
       isDefault: false,
       pos: { line: 1, col: 16, length: 9 }
     })
-    expect(def('const helper = () => 1', 'helper')).toMatchObject({ kind: 'function', exported: false })
+    expect(def('const helper = () => 1', 'helper')).toMatchObject({
+      kind: 'function',
+      exported: false
+    })
     expect(def('export class Store {}', 'Store')).toMatchObject({ kind: 'class', exported: true })
-    expect(def('export const LIMIT = 5', 'LIMIT')).toMatchObject({ kind: 'variable', exported: true })
+    expect(def('export const LIMIT = 5', 'LIMIT')).toMatchObject({
+      kind: 'variable',
+      exported: true
+    })
   })
 
   test('marks capitalized functions in jsx/tsx as components', () => {
@@ -27,7 +33,10 @@ describe('parseFile definitions', () => {
   })
 
   test('anonymous default export', () => {
-    expect(def('export default () => 1', 'default')).toMatchObject({ isDefault: true, exported: true })
+    expect(def('export default () => 1', 'default')).toMatchObject({
+      isDefault: true,
+      exported: true
+    })
   })
 
   test('export list and default-export of an identifier mark existing definitions', () => {
@@ -40,26 +49,39 @@ describe('parseFile definitions', () => {
     const src = 'function a(){}\nfunction b(){}\nmodule.exports = { a, b }'
     expect(def(src, 'a', 'x.js')).toMatchObject({ exported: true })
     expect(def(src, 'b', 'x.js')).toMatchObject({ exported: true })
-    expect(def('exports.c = function(){}', 'c', 'x.js')).toMatchObject({ exported: true, kind: 'function' })
-    expect(def('module.exports = function main(){}', 'main', 'x.js')).toMatchObject({ isDefault: true, exported: true })
-    expect(def('const router = 1\nmodule.exports = router', 'router', 'x.js')).toMatchObject({ isDefault: true, exported: true })
+    expect(def('exports.c = function(){}', 'c', 'x.js')).toMatchObject({
+      exported: true,
+      kind: 'function'
+    })
+    expect(def('module.exports = function main(){}', 'main', 'x.js')).toMatchObject({
+      isDefault: true,
+      exported: true
+    })
+    expect(def('const router = 1\nmodule.exports = router', 'router', 'x.js')).toMatchObject({
+      isDefault: true,
+      exported: true
+    })
   })
 })
 
 describe('parseFile locallyUsed', () => {
   test('lists definitions referenced elsewhere in the same file', () => {
-    const src = 'export const LIMIT = 3\nexport function run() { return LIMIT }\nexport function idle() {}'
+    const src =
+      'export const LIMIT = 3\nexport function run() { return LIMIT }\nexport function idle() {}'
     expect(parseFile('a.ts', src).locallyUsed).toEqual(['LIMIT'])
   })
 
   test('export sites do not count as use', () => {
-    const src = 'function a() {}\nfunction b() {}\nconst c = 1\nmodule.exports = { a, b: b }\nexport { c }\nexports.d = d\nfunction d() {}'
+    const src =
+      'function a() {}\nfunction b() {}\nconst c = 1\nmodule.exports = { a, b: b }\nexport { c }\nexports.d = d\nfunction d() {}'
     expect(parseFile('x.js', src).locallyUsed).toEqual([])
     expect(parseFile('y.ts', 'function e() {}\nexport default e').locallyUsed).toEqual([])
   })
 
   test('recursion inside the definition itself does not count', () => {
-    expect(parseFile('a.ts', 'export function walk(n) { return n && walk(n - 1) }').locallyUsed).toEqual([])
+    expect(
+      parseFile('a.ts', 'export function walk(n) { return n && walk(n - 1) }').locallyUsed
+    ).toEqual([])
   })
 })
 
@@ -122,13 +144,22 @@ describe('parseFile imports', () => {
     expect(imports("import './polyfill'")).toEqual([
       { specifier: './polyfill', kind: 'sideEffect', bindings: [], refs: {} }
     ])
-    expect(imports("const m = import('./lazy')")[0]).toMatchObject({ specifier: './lazy', kind: 'dynamic' })
+    expect(imports("const m = import('./lazy')")[0]).toMatchObject({
+      specifier: './lazy',
+      kind: 'dynamic'
+    })
     expect(imports("export { a as b } from './x'")[0]).toMatchObject({
       kind: 'reexport',
       bindings: [{ imported: 'a', local: 'b' }]
     })
-    expect(imports("export * from './y'")[0]).toMatchObject({ kind: 'reexportAll', specifier: './y' })
-    expect(imports("require('./setup')", 'b.js')[0]).toMatchObject({ kind: 'sideEffect', specifier: './setup' })
+    expect(imports("export * from './y'")[0]).toMatchObject({
+      kind: 'reexportAll',
+      specifier: './y'
+    })
+    expect(imports("require('./setup')", 'b.js')[0]).toMatchObject({
+      kind: 'sideEffect',
+      specifier: './setup'
+    })
   })
 
   test('ignores non-code imports', () => {
@@ -149,6 +180,11 @@ describe('parseFile robustness', () => {
 
   test('a parser crash yields an unparsed result', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(parseFile('a.ts', null as any)).toEqual({ parsed: false, definitions: [], imports: [], locallyUsed: [] })
+    expect(parseFile('a.ts', null as any)).toEqual({
+      parsed: false,
+      definitions: [],
+      imports: [],
+      locallyUsed: []
+    })
   })
 })

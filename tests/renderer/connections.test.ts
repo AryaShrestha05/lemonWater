@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { connections } from '../../src/renderer/src/code/ConnectionChips'
+import { connections } from '../../src/renderer/src/code/connections'
 import type { ProjectGraph } from '../../src/core/types'
 
 const g: ProjectGraph = {
@@ -15,7 +15,10 @@ const g: ProjectGraph = {
 
 describe('connections', () => {
   test('uses and usedBy come from import edges, sorted', () => {
-    expect(connections(g, 'src/a.ts')).toEqual({ uses: ['src/b.ts', 'src/z.ts'], usedBy: ['src/main.ts'] })
+    expect(connections(g, 'src/a.ts')).toEqual({
+      uses: ['src/b.ts', 'src/z.ts'],
+      usedBy: ['src/main.ts']
+    })
   })
 
   test('contains edges are ignored', () => {

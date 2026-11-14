@@ -44,7 +44,8 @@ export const DRIFT_ALPHA = 0.005
 
 export function createLayout(graph: ProjectGraph, opts: LayoutOptions = {}): Layout {
   const childCount = new Map<NodeId, number>()
-  for (const e of graph.edges) if (e.kind === 'contains') childCount.set(e.source, (childCount.get(e.source) ?? 0) + 1)
+  for (const e of graph.edges)
+    if (e.kind === 'contains') childCount.set(e.source, (childCount.get(e.source) ?? 0) + 1)
 
   const nodes: SimNode[] = graph.nodes.map((n) => {
     const start = opts.initialPositions?.get(n.id)
@@ -67,8 +68,14 @@ export function createLayout(graph: ProjectGraph, opts: LayoutOptions = {}): Lay
         .distance((l) => (l.kind === 'contains' ? 30 + l.source.radius : 80))
         .strength((l) => (l.kind === 'contains' ? 1 : 0.1))
     )
-    .force('charge', forceManyBody<SimNode>().strength((n) => (n.kind === 'folder' ? -160 : -60)))
-    .force('collide', forceCollide<SimNode>((n) => n.radius + 2))
+    .force(
+      'charge',
+      forceManyBody<SimNode>().strength((n) => (n.kind === 'folder' ? -160 : -60))
+    )
+    .force(
+      'collide',
+      forceCollide<SimNode>((n) => n.radius + 2)
+    )
     .force('center', forceCenter(0, 0))
     // weak pull to the middle keeps disconnected clusters on screen
     .force('x', forceX(0).strength(0.02))

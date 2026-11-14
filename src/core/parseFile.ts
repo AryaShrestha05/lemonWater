@@ -22,9 +22,44 @@ export interface ParsedFile {
 
 /** Imports of these extensions are assets, not code, and never become edges. */
 const ASSET_EXTENSIONS = new Set([
-  'css', 'scss', 'sass', 'less', 'styl', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'ico', 'bmp',
-  'json', 'md', 'mdx', 'html', 'txt', 'csv', 'xml', 'yaml', 'yml', 'toml', 'graphql', 'gql',
-  'woff', 'woff2', 'ttf', 'otf', 'eot', 'mp3', 'mp4', 'webm', 'wav', 'ogg', 'wasm', 'pdf'
+  'css',
+  'scss',
+  'sass',
+  'less',
+  'styl',
+  'svg',
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'webp',
+  'avif',
+  'ico',
+  'bmp',
+  'json',
+  'md',
+  'mdx',
+  'html',
+  'txt',
+  'csv',
+  'xml',
+  'yaml',
+  'yml',
+  'toml',
+  'graphql',
+  'gql',
+  'woff',
+  'woff2',
+  'ttf',
+  'otf',
+  'eot',
+  'mp3',
+  'mp4',
+  'webm',
+  'wav',
+  'ogg',
+  'wasm',
+  'pdf'
 ])
 
 function isCodeSpecifier(spec: string): boolean {
@@ -35,7 +70,8 @@ function isCodeSpecifier(spec: string): boolean {
 
 function scriptKind(fileName: string): ts.ScriptKind {
   if (fileName.endsWith('.tsx')) return ts.ScriptKind.TSX
-  if (fileName.endsWith('.ts') || fileName.endsWith('.mts') || fileName.endsWith('.cts')) return ts.ScriptKind.TS
+  if (fileName.endsWith('.ts') || fileName.endsWith('.mts') || fileName.endsWith('.cts'))
+    return ts.ScriptKind.TS
   if (fileName.endsWith('.jsx')) return ts.ScriptKind.JSX
   return ts.ScriptKind.JS
 }
@@ -97,7 +133,8 @@ function isModuleExports(expr: ts.Expression): boolean {
 /** True when the identifier sits in a type-only position. */
 function inTypePosition(node: ts.Node): boolean {
   for (let p: ts.Node | undefined = node.parent; p; p = p.parent) {
-    if (ts.isTypeNode(p) || ts.isTypeAliasDeclaration(p) || ts.isInterfaceDeclaration(p)) return true
+    if (ts.isTypeNode(p) || ts.isTypeAliasDeclaration(p) || ts.isInterfaceDeclaration(p))
+      return true
     if (ts.isHeritageClause(p) && p.token === ts.SyntaxKind.ImplementsKeyword) return true
     if (ts.isExpressionStatement(p) || ts.isBlock(p) || ts.isSourceFile(p)) return false
   }
@@ -117,14 +154,21 @@ function isShadowed(node: ts.Node, name: string): boolean {
       for (const param of p.parameters) bindingNames(param.name, names)
       if ((ts.isFunctionExpression(p) || ts.isClassExpression(p)) && p.name) names.add(p.name.text)
     }
-    if (ts.isCatchClause(p) && p.variableDeclaration) bindingNames(p.variableDeclaration.name, names)
-    if ((ts.isForStatement(p) || ts.isForOfStatement(p) || ts.isForInStatement(p)) && p.initializer && ts.isVariableDeclarationList(p.initializer)) {
+    if (ts.isCatchClause(p) && p.variableDeclaration)
+      bindingNames(p.variableDeclaration.name, names)
+    if (
+      (ts.isForStatement(p) || ts.isForOfStatement(p) || ts.isForInStatement(p)) &&
+      p.initializer &&
+      ts.isVariableDeclarationList(p.initializer)
+    ) {
       for (const d of p.initializer.declarations) bindingNames(d.name, names)
     }
     if (ts.isBlock(p) || ts.isCaseClause(p) || ts.isDefaultClause(p)) {
       for (const st of p.statements) {
-        if (ts.isVariableStatement(st)) for (const d of st.declarationList.declarations) bindingNames(d.name, names)
-        if ((ts.isFunctionDeclaration(st) || ts.isClassDeclaration(st)) && st.name) names.add(st.name.text)
+        if (ts.isVariableStatement(st))
+          for (const d of st.declarationList.declarations) bindingNames(d.name, names)
+        if ((ts.isFunctionDeclaration(st) || ts.isClassDeclaration(st)) && st.name)
+          names.add(st.name.text)
       }
     }
     if (names.has(name)) return true
@@ -136,9 +180,27 @@ function isShadowed(node: ts.Node, name: string): boolean {
 function isNonReferenceIdentifier(id: ts.Identifier): boolean {
   const p = id.parent
   if (ts.isPropertyAccessExpression(p) && p.name === id) return true
-  if ((ts.isPropertyAssignment(p) || ts.isPropertyDeclaration(p) || ts.isMethodDeclaration(p) || ts.isPropertySignature(p) || ts.isGetAccessor(p) || ts.isSetAccessor(p)) && p.name === id) return true
+  if (
+    (ts.isPropertyAssignment(p) ||
+      ts.isPropertyDeclaration(p) ||
+      ts.isMethodDeclaration(p) ||
+      ts.isPropertySignature(p) ||
+      ts.isGetAccessor(p) ||
+      ts.isSetAccessor(p)) &&
+    p.name === id
+  )
+    return true
   if (ts.isJsxAttribute(p) && p.name === id) return true
-  if ((ts.isVariableDeclaration(p) || ts.isParameter(p) || ts.isFunctionDeclaration(p) || ts.isFunctionExpression(p) || ts.isClassDeclaration(p) || ts.isClassExpression(p)) && p.name === id) return true
+  if (
+    (ts.isVariableDeclaration(p) ||
+      ts.isParameter(p) ||
+      ts.isFunctionDeclaration(p) ||
+      ts.isFunctionExpression(p) ||
+      ts.isClassDeclaration(p) ||
+      ts.isClassExpression(p)) &&
+    p.name === id
+  )
+    return true
   if (ts.isBindingElement(p) && (p.name === id || p.propertyName === id)) return true
   if (ts.isLabeledStatement(p) || ts.isBreakOrContinueStatement(p)) return true
   if (ts.isImportSpecifier(p) || ts.isImportClause(p) || ts.isNamespaceImport(p)) return true
@@ -156,7 +218,13 @@ export function parseFile(fileName: string, source: string): ParsedFile {
 
 function parseUnsafe(fileName: string, source: string): ParsedFile {
   if (typeof source !== 'string') throw new TypeError('source must be a string')
-  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, scriptKind(fileName))
+  const sf = ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKind(fileName)
+  )
 
   const posOf = (node: ts.Node, length?: number): Pos => {
     const start = node.getStart(sf)
@@ -168,7 +236,14 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
   const defs = new Map<string, ParsedDefinition>()
   const declNodes = new Map<string, ts.Node>()
   const exportSites = new Set<ts.Node>()
-  const addDef = (name: string, kind: ParsedDefinition['kind'], pos: Pos, exported: boolean, isDefault: boolean, decl?: ts.Node): void => {
+  const addDef = (
+    name: string,
+    kind: ParsedDefinition['kind'],
+    pos: Pos,
+    exported: boolean,
+    isDefault: boolean,
+    decl?: ts.Node
+  ): void => {
     if (decl && !declNodes.has(name)) declNodes.set(name, decl)
     const existing = defs.get(name)
     if (existing) {
@@ -198,7 +273,8 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
     const isDefault = hasModifier(st, ts.SyntaxKind.DefaultKeyword)
 
     if (ts.isFunctionDeclaration(st)) {
-      if (st.name) addDef(st.name.text, fnKind(st.name.text, st), posOf(st.name), exported, isDefault, st)
+      if (st.name)
+        addDef(st.name.text, fnKind(st.name.text, st), posOf(st.name), exported, isDefault, st)
       else if (isDefault) addDef('default', 'function', anonDefaultPos(st), true, true)
     } else if (ts.isClassDeclaration(st)) {
       if (st.name) addDef(st.name.text, 'class', posOf(st.name), exported, isDefault, st)
@@ -206,7 +282,14 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
     } else if (ts.isVariableStatement(st)) {
       for (const d of st.declarationList.declarations) {
         if (!ts.isIdentifier(d.name) || isRequireCall(d.initializer)) continue
-        addDef(d.name.text, d.initializer ? kindOfExpr(d.name.text, d.initializer) : 'variable', posOf(d.name), exported, false, d)
+        addDef(
+          d.name.text,
+          d.initializer ? kindOfExpr(d.name.text, d.initializer) : 'variable',
+          posOf(d.name),
+          exported,
+          false,
+          d
+        )
       }
     } else if (ts.isExportAssignment(st) && !st.isExportEquals) {
       const e = st.expression
@@ -215,7 +298,13 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
         if (ts.isIdentifier(e) && markExported(e.text, true)) return
         addDef('default', kindOfExpr('default', e), anonDefaultPos(st), true, true)
       })
-    } else if (ts.isExportDeclaration(st) && !st.moduleSpecifier && !st.isTypeOnly && st.exportClause && ts.isNamedExports(st.exportClause)) {
+    } else if (
+      ts.isExportDeclaration(st) &&
+      !st.moduleSpecifier &&
+      !st.isTypeOnly &&
+      st.exportClause &&
+      ts.isNamedExports(st.exportClause)
+    ) {
       for (const el of st.exportClause.elements) {
         exportSites.add(el.name)
         if (el.propertyName) exportSites.add(el.propertyName)
@@ -224,7 +313,11 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
         const exportedAs = el.name.text
         deferredExports.push(() => void markExported(local, exportedAs === 'default'))
       }
-    } else if (ts.isExpressionStatement(st) && ts.isBinaryExpression(st.expression) && st.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+    } else if (
+      ts.isExpressionStatement(st) &&
+      ts.isBinaryExpression(st.expression) &&
+      st.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken
+    ) {
       const { left, right } = st.expression
       if (ts.isPropertyAccessExpression(left) && isModuleExports(left)) {
         // module.exports = …
@@ -245,12 +338,22 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
     if (ts.isObjectLiteralExpression(right)) {
       for (const prop of right.properties) {
         if (ts.isShorthandPropertyAssignment(prop)) exportSites.add(prop.name)
-        if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.initializer)) exportSites.add(prop.initializer)
+        if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.initializer))
+          exportSites.add(prop.initializer)
         if (ts.isShorthandPropertyAssignment(prop)) {
-          if (!markExported(prop.name.text, false)) addDef(prop.name.text, 'variable', posOf(prop.name), true, false)
-        } else if (ts.isPropertyAssignment(prop) && (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name))) {
+          if (!markExported(prop.name.text, false))
+            addDef(prop.name.text, 'variable', posOf(prop.name), true, false)
+        } else if (
+          ts.isPropertyAssignment(prop) &&
+          (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name))
+        ) {
           const name = prop.name.text
-          if (ts.isIdentifier(prop.initializer) && prop.initializer.text === name && markExported(name, false)) continue
+          if (
+            ts.isIdentifier(prop.initializer) &&
+            prop.initializer.text === name &&
+            markExported(name, false)
+          )
+            continue
           addDef(name, kindOfExpr(name, prop.initializer), posOf(prop.name), true, false)
         } else if (ts.isMethodDeclaration(prop) && ts.isIdentifier(prop.name)) {
           addDef(prop.name.text, 'function', posOf(prop.name), true, false)
@@ -262,7 +365,13 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
     if (ts.isIdentifier(right) && markExported(right.text, true)) return
     if ((ts.isFunctionExpression(right) || ts.isClassExpression(right)) && right.name) {
       const name = right.name.text
-      addDef(name, ts.isClassExpression(right) ? 'class' : fnKind(name, right), posOf(right.name), true, true)
+      addDef(
+        name,
+        ts.isClassExpression(right) ? 'class' : fnKind(name, right),
+        posOf(right.name),
+        true,
+        true
+      )
       return
     }
     addDef('default', kindOfExpr('default', right), posOf(right.parent.parent), true, true)
@@ -276,7 +385,12 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
   const locals = new Map<string, { rec: ImportRecord; imported: string; viaRequire: boolean }>()
   const skipNodes = new Set<ts.Node>()
 
-  const addBinding = (rec: ImportRecord, imported: string, local: string, viaRequire: boolean): void => {
+  const addBinding = (
+    rec: ImportRecord,
+    imported: string,
+    local: string,
+    viaRequire: boolean
+  ): void => {
     rec.bindings.push({ imported, local })
     locals.set(local, { rec, imported, viaRequire })
   }
@@ -293,7 +407,12 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
       }
       if (clause.isTypeOnly) continue
       const nb = clause.namedBindings
-      const rec: ImportRecord = { specifier, kind: nb && ts.isNamespaceImport(nb) ? 'namespace' : 'named', bindings: [], refs: {} }
+      const rec: ImportRecord = {
+        specifier,
+        kind: nb && ts.isNamespaceImport(nb) ? 'namespace' : 'named',
+        bindings: [],
+        refs: {}
+      }
       if (clause.name) addBinding(rec, 'default', clause.name.text, false)
       if (nb && ts.isNamespaceImport(nb)) addBinding(rec, '*', nb.name.text, false)
       if (nb && ts.isNamedImports(nb)) {
@@ -303,14 +422,23 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
         }
       }
       if (rec.bindings.length) imports.push(rec)
-    } else if (ts.isExportDeclaration(st) && st.moduleSpecifier && ts.isStringLiteralLike(st.moduleSpecifier)) {
+    } else if (
+      ts.isExportDeclaration(st) &&
+      st.moduleSpecifier &&
+      ts.isStringLiteralLike(st.moduleSpecifier)
+    ) {
       skipNodes.add(st)
       const specifier = st.moduleSpecifier.text
       if (st.isTypeOnly || !isCodeSpecifier(specifier)) continue
       if (!st.exportClause) {
         imports.push({ specifier, kind: 'reexportAll', bindings: [], refs: {} })
       } else if (ts.isNamespaceExport(st.exportClause)) {
-        imports.push({ specifier, kind: 'reexport', bindings: [{ imported: '*', local: st.exportClause.name.text }], refs: {} })
+        imports.push({
+          specifier,
+          kind: 'reexport',
+          bindings: [{ imported: '*', local: st.exportClause.name.text }],
+          refs: {}
+        })
       } else {
         const bindings = st.exportClause.elements
           .filter((el) => !el.isTypeOnly)
@@ -334,7 +462,10 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
           const rec: ImportRecord = { specifier, kind: 'named', bindings: [], refs: {} }
           for (const el of node.name.elements) {
             if (!ts.isIdentifier(el.name)) continue
-            const imported = el.propertyName && ts.isIdentifier(el.propertyName) ? el.propertyName.text : el.name.text
+            const imported =
+              el.propertyName && ts.isIdentifier(el.propertyName)
+                ? el.propertyName.text
+                : el.name.text
             addBinding(rec, imported, el.name.text, true)
           }
           if (rec.bindings.length) imports.push(rec)
@@ -344,10 +475,12 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
     }
     if (isRequireCall(node)) {
       const specifier = (node.arguments[0] as ts.StringLiteralLike).text
-      if (isCodeSpecifier(specifier)) imports.push({ specifier, kind: 'sideEffect', bindings: [], refs: {} })
+      if (isCodeSpecifier(specifier))
+        imports.push({ specifier, kind: 'sideEffect', bindings: [], refs: {} })
     } else if (isDynamicImport(node)) {
       const specifier = (node.arguments[0] as ts.StringLiteralLike).text
-      if (isCodeSpecifier(specifier)) imports.push({ specifier, kind: 'dynamic', bindings: [], refs: {} })
+      if (isCodeSpecifier(specifier))
+        imports.push({ specifier, kind: 'dynamic', bindings: [], refs: {} })
     }
     ts.forEachChild(node, scanCalls)
   }
@@ -399,5 +532,10 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
     (rec) => !(rec.kind === 'named' || rec.kind === 'namespace') || Object.keys(rec.refs).length > 0
   )
 
-  return { parsed: true, definitions: [...defs.values()], imports: kept, locallyUsed: [...locallyUsed] }
+  return {
+    parsed: true,
+    definitions: [...defs.values()],
+    imports: kept,
+    locallyUsed: [...locallyUsed]
+  }
 }

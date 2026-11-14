@@ -1,8 +1,15 @@
 import { describe, expect, test } from 'vitest'
-import { searchFiles } from '../../src/renderer/src/search/SearchBox'
+import { searchFiles } from '../../src/renderer/src/search/searchFiles'
 import type { ProjectGraph } from '../../src/core/types'
 
-const file = (id: string) => ({ id, kind: 'file' as const, name: id.slice(id.lastIndexOf('/') + 1), parent: '.', parsed: true, definitions: [] })
+const file = (id: string) => ({
+  id,
+  kind: 'file' as const,
+  name: id.slice(id.lastIndexOf('/') + 1),
+  parent: '.',
+  parsed: true,
+  definitions: []
+})
 const g: ProjectGraph = {
   root: '/x',
   nodes: [
@@ -17,7 +24,11 @@ const g: ProjectGraph = {
 
 describe('searchFiles', () => {
   test('ranks basename prefix > basename substring > path substring', () => {
-    expect(searchFiles(g, 'app')).toEqual(['src/App.tsx', 'src/hooks/useApp.ts', 'src/app-utils/x.ts'])
+    expect(searchFiles(g, 'app')).toEqual([
+      'src/App.tsx',
+      'src/hooks/useApp.ts',
+      'src/app-utils/x.ts'
+    ])
   })
 
   test('empty query gives nothing', () => {

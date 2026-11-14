@@ -88,7 +88,13 @@ interface OpenFile {
   source: string
 }
 
-function Workspace({ graph, onOpenFolder }: { graph: ProjectGraph; onOpenFolder: () => void }): React.JSX.Element {
+function Workspace({
+  graph,
+  onOpenFolder
+}: {
+  graph: ProjectGraph
+  onOpenFolder: () => void
+}): React.JSX.Element {
   const [selectedId, setSelectedId] = useState<NodeId | null>(null)
   const [focusId, setFocusId] = useState<NodeId | null>(null)
   const [scrollTo, setScrollTo] = useState<Pos | null>(null)
@@ -112,7 +118,8 @@ function Workspace({ graph, onOpenFolder }: { graph: ProjectGraph; onOpenFolder:
           if (seq === loadSeq.current) setOpenFile({ id, source })
         })
         .catch((err) => {
-          if (seq === loadSeq.current) setLoadError(err instanceof Error ? err.message : String(err))
+          if (seq === loadSeq.current)
+            setLoadError(err instanceof Error ? err.message : String(err))
         })
     },
     [graph.root]
@@ -177,7 +184,9 @@ function Workspace({ graph, onOpenFolder }: { graph: ProjectGraph; onOpenFolder:
             <header>
               <span className="path">{selectedId}</span>
             </header>
-            <p className="panel-note">{loadError ? `Couldn’t open this file: ${loadError}` : 'Loading…'}</p>
+            <p className="panel-note">
+              {loadError ? `Couldn’t open this file: ${loadError}` : 'Loading…'}
+            </p>
           </aside>
         ))}
     </div>

@@ -15,11 +15,22 @@ export function findFile(graph: ProjectGraph, fileId: NodeId): FileNode | undefi
 export function codeMarks(graph: ProjectGraph, fileId: NodeId): CodeMark[] {
   const file = findFile(graph, fileId)
   if (!file) return []
-  const marks: CodeMark[] = file.definitions.map((d) => ({ kind: 'definition', pos: d.pos, name: d.name }))
+  const marks: CodeMark[] = file.definitions.map((d) => ({
+    kind: 'definition',
+    pos: d.pos,
+    name: d.name
+  }))
   for (const e of graph.edges) {
     if (e.kind !== 'import' || e.source !== fileId) continue
     for (const s of e.symbols) {
-      for (const pos of s.refs) marks.push({ kind: 'outgoing', pos, target: e.target, targetPos: s.targetPos, name: s.name })
+      for (const pos of s.refs)
+        marks.push({
+          kind: 'outgoing',
+          pos,
+          target: e.target,
+          targetPos: s.targetPos,
+          name: s.name
+        })
     }
   }
   for (const d of file.definitions) {
@@ -58,7 +69,11 @@ export function lineNotes(graph: ProjectGraph, fileId: NodeId): LineNote[] {
     }
   }
   for (const [line, targets] of targetsByLine) {
-    offer({ line, text: `→ ${targets[0]}${targets.length > 1 ? ` +${targets.length - 1}` : ''}`, tone: 'out' })
+    offer({
+      line,
+      text: `→ ${targets[0]}${targets.length > 1 ? ` +${targets.length - 1}` : ''}`,
+      tone: 'out'
+    })
   }
 
   const file = findFile(graph, fileId)
@@ -67,7 +82,11 @@ export function lineNotes(graph: ProjectGraph, fileId: NodeId): LineNote[] {
       offer({ line: d.pos.line, text: '· not used anywhere', tone: 'unused' })
     } else if (d.usedBy.length) {
       const names = d.usedBy.map(baseName).sort()
-      offer({ line: d.pos.line, text: `← called by ${names[0]}${names.length > 1 ? ` +${names.length - 1}` : ''}`, tone: 'in' })
+      offer({
+        line: d.pos.line,
+        text: `← called by ${names[0]}${names.length > 1 ? ` +${names.length - 1}` : ''}`,
+        tone: 'in'
+      })
     }
   }
   return [...byLine.values()].sort((a, b) => a.line - b.line)

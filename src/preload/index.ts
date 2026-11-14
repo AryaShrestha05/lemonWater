@@ -12,7 +12,8 @@ const lemon = {
       ipcRenderer.removeListener('lemon:progress', listener)
     }
   },
-  readFile: (root: string, fileId: string): Promise<string> => ipcRenderer.invoke('lemon:readFile', root, fileId)
+  readFile: (root: string, fileId: string): Promise<string> =>
+    ipcRenderer.invoke('lemon:readFile', root, fileId)
 }
 
 if (process.contextIsolated) {

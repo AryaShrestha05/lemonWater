@@ -45,7 +45,8 @@ describe('createLayout', () => {
       const others = ['a', 'b', 'c'].filter((x) => x !== f).map((x) => byId.get(x)!)
       const files = nodes.filter((n) => n.id.startsWith(f + '/'))
       const meanOwn = files.reduce((s, n) => s + dist(n, own), 0) / files.length
-      const meanOther = files.reduce((s, n) => s + Math.min(...others.map((o) => dist(n, o))), 0) / files.length
+      const meanOther =
+        files.reduce((s, n) => s + Math.min(...others.map((o) => dist(n, o))), 0) / files.length
       expect(meanOwn).toBeLessThan(meanOther)
     }
   })
@@ -66,7 +67,11 @@ describe('createLayout', () => {
   })
 
   test('handles a graph with only the root folder', () => {
-    const { nodes, sim } = createLayout({ root: '/x', nodes: [{ id: '.', kind: 'folder', name: 'r', parent: null }], edges: [] })
+    const { nodes, sim } = createLayout({
+      root: '/x',
+      nodes: [{ id: '.', kind: 'folder', name: 'r', parent: null }],
+      edges: []
+    })
     sim.stop()
     expect(nodes).toHaveLength(1)
     expect(Number.isFinite(nodes[0].x)).toBe(true)

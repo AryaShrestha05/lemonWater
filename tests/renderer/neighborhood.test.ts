@@ -2,7 +2,14 @@ import { describe, expect, test } from 'vitest'
 import { neighborhood } from '../../src/renderer/src/graph/neighborhood'
 import type { ProjectGraph } from '../../src/core/types'
 
-const file = (id: string, parent: string) => ({ id, kind: 'file' as const, name: id, parent, parsed: true, definitions: [] })
+const file = (id: string, parent: string) => ({
+  id,
+  kind: 'file' as const,
+  name: id,
+  parent,
+  parsed: true,
+  definitions: []
+})
 const g: ProjectGraph = {
   root: '/x',
   nodes: [

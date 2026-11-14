@@ -12,7 +12,14 @@ const def = (name: string, line: number, extra: Partial<SymbolDef> = {}): Symbol
   notUsedAnywhere: false,
   ...extra
 })
-const file = (id: string, definitions: SymbolDef[] = []): FileNode => ({ id, kind: 'file', name: id, parent: '.', parsed: true, definitions })
+const file = (id: string, definitions: SymbolDef[] = []): FileNode => ({
+  id,
+  kind: 'file',
+  name: id,
+  parent: '.',
+  parsed: true,
+  definitions
+})
 
 const graph: ProjectGraph = {
   root: '/x',
@@ -29,9 +36,29 @@ const graph: ProjectGraph = {
       kind: 'import',
       source: 'App.tsx',
       target: 'api.ts',
-      symbols: [{ name: 'fetchUser', targetPos: { line: 1, col: 16, length: 9 }, refs: [{ line: 6, col: 15, length: 9 }, { line: 7, col: 2, length: 9 }] }]
+      symbols: [
+        {
+          name: 'fetchUser',
+          targetPos: { line: 1, col: 16, length: 9 },
+          refs: [
+            { line: 6, col: 15, length: 9 },
+            { line: 7, col: 2, length: 9 }
+          ]
+        }
+      ]
     },
-    { kind: 'import', source: 'main.tsx', target: 'App.tsx', symbols: [{ name: 'App', targetPos: { line: 4, col: 16, length: 3 }, refs: [{ line: 2, col: 0, length: 3 }] }] }
+    {
+      kind: 'import',
+      source: 'main.tsx',
+      target: 'App.tsx',
+      symbols: [
+        {
+          name: 'App',
+          targetPos: { line: 4, col: 16, length: 3 },
+          refs: [{ line: 2, col: 0, length: 3 }]
+        }
+      ]
+    }
   ]
 }
 
@@ -45,14 +72,28 @@ describe('codeMarks', () => {
   test('every ref of an outgoing symbol yields an outgoing mark', () => {
     const out = codeMarks(graph, 'App.tsx').filter((m) => m.kind === 'outgoing')
     expect(out).toEqual([
-      { kind: 'outgoing', pos: { line: 6, col: 15, length: 9 }, target: 'api.ts', targetPos: { line: 1, col: 16, length: 9 }, name: 'fetchUser' },
-      { kind: 'outgoing', pos: { line: 7, col: 2, length: 9 }, target: 'api.ts', targetPos: { line: 1, col: 16, length: 9 }, name: 'fetchUser' }
+      {
+        kind: 'outgoing',
+        pos: { line: 6, col: 15, length: 9 },
+        target: 'api.ts',
+        targetPos: { line: 1, col: 16, length: 9 },
+        name: 'fetchUser'
+      },
+      {
+        kind: 'outgoing',
+        pos: { line: 7, col: 2, length: 9 },
+        target: 'api.ts',
+        targetPos: { line: 1, col: 16, length: 9 },
+        name: 'fetchUser'
+      }
     ])
   })
 
   test('a definition used by other files yields an incoming mark', () => {
     const inc = codeMarks(graph, 'App.tsx').filter((m) => m.kind === 'incoming')
-    expect(inc).toEqual([{ kind: 'incoming', pos: { line: 4, col: 16, length: 3 }, name: 'App', from: ['main.tsx'] }])
+    expect(inc).toEqual([
+      { kind: 'incoming', pos: { line: 4, col: 16, length: 3 }, name: 'App', from: ['main.tsx'] }
+    ])
   })
 
   test('a file with no edges yields only definition marks', () => {
@@ -67,7 +108,11 @@ describe('codeMarks', () => {
 import { lineNotes } from '../../src/renderer/src/code/codeMarks'
 
 describe('lineNotes', () => {
-  const sym = (name: string, line: number) => ({ name, targetPos: { line: 1, col: 0, length: name.length }, refs: [{ line, col: 2, length: name.length }] })
+  const sym = (name: string, line: number) => ({
+    name,
+    targetPos: { line: 1, col: 0, length: name.length },
+    refs: [{ line, col: 2, length: name.length }]
+  })
   const notesGraph: ProjectGraph = {
     root: '/x',
     nodes: [
@@ -79,7 +124,12 @@ describe('lineNotes', () => {
       ])
     ],
     edges: [
-      { kind: 'import', source: 'src/App.tsx', target: 'lib/api.ts', symbols: [sym('fetchUser', 5), sym('other', 8)] },
+      {
+        kind: 'import',
+        source: 'src/App.tsx',
+        target: 'lib/api.ts',
+        symbols: [sym('fetchUser', 5), sym('other', 8)]
+      },
       { kind: 'import', source: 'src/App.tsx', target: 'lib/db.ts', symbols: [sym('query', 8)] }
     ]
   }
@@ -87,7 +137,11 @@ describe('lineNotes', () => {
   const at = (line: number) => notes.filter((n) => n.line === line)
 
   test('outgoing call to one file', () => {
-    expect(lineNotes({ ...notesGraph, nodes: [file('src/App.tsx')] }, 'src/App.tsx').find((n) => n.line === 5)).toEqual({
+    expect(
+      lineNotes({ ...notesGraph, nodes: [file('src/App.tsx')] }, 'src/App.tsx').find(
+        (n) => n.line === 5
+      )
+    ).toEqual({
       line: 5,
       text: '→ lib/api.ts',
       tone: 'out'

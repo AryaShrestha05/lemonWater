@@ -60,11 +60,15 @@ function registerIpc(): void {
     if (!allowedRoots.has(root)) throw new Error('folder was not opened through the picker')
     return new Promise<ProjectGraph>((resolvePromise, reject) => {
       const worker = new Worker(workerPath, { workerData: { root } })
-      worker.on('message', (msg: { type: string; progress?: Progress; graph?: ProjectGraph; message?: string }) => {
-        if (msg.type === 'progress' && !event.sender.isDestroyed()) event.sender.send('lemon:progress', msg.progress)
-        if (msg.type === 'done') resolvePromise(msg.graph!)
-        if (msg.type === 'error') reject(new Error(msg.message))
-      })
+      worker.on(
+        'message',
+        (msg: { type: string; progress?: Progress; graph?: ProjectGraph; message?: string }) => {
+          if (msg.type === 'progress' && !event.sender.isDestroyed())
+            event.sender.send('lemon:progress', msg.progress)
+          if (msg.type === 'done') resolvePromise(msg.graph!)
+          if (msg.type === 'error') reject(new Error(msg.message))
+        }
+      )
       worker.on('error', reject)
       worker.on('exit', (code) => {
         if (code !== 0) reject(new Error(`analysis stopped (exit ${code})`))

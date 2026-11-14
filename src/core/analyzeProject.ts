@@ -3,7 +3,17 @@ import { basename, join, posix } from 'node:path'
 import { parseFile, type ParsedDefinition, type ParsedFile } from './parseFile'
 import { createResolver } from './resolve'
 import { scanFiles } from './scanFiles'
-import type { FileNode, FolderNode, GraphEdge, ImportEdge, NodeId, Pos, Progress, ProjectGraph, SymbolDef } from './types'
+import type {
+  FileNode,
+  FolderNode,
+  GraphEdge,
+  ImportEdge,
+  NodeId,
+  Pos,
+  Progress,
+  ProjectGraph,
+  SymbolDef
+} from './types'
 
 /** Files larger than this are shown as nodes but not parsed. */
 export const MAX_PARSE_BYTES = 1_000_000
@@ -36,7 +46,12 @@ export function analyzeProject(root: string, onProgress?: (p: Progress) => void)
       } catch {
         // unreadable → unparsed node
       }
-      parsed.set(f.id, source === null ? { parsed: false, definitions: [], imports: [], locallyUsed: [] } : parseFile(f.id, source))
+      parsed.set(
+        f.id,
+        source === null
+          ? { parsed: false, definitions: [], imports: [], locallyUsed: [] }
+          : parseFile(f.id, source)
+      )
     }
     if ((i + 1) % 10 === 0 || i + 1 === total) onProgress?.({ phase: 'parse', done: i + 1, total })
   })
@@ -49,11 +64,18 @@ export function analyzeProject(root: string, onProgress?: (p: Progress) => void)
   const findOwnExport = (file: NodeId, name: string): ParsedDefinition | undefined => {
     const defs = parsed.get(file)?.definitions ?? []
     if (name === 'default') return defs.find((d) => d.isDefault)
-    return defs.find((d) => d.name === name && d.exported) ?? defs.find((d) => d.name === name && !d.isDefault)
+    return (
+      defs.find((d) => d.name === name && d.exported) ??
+      defs.find((d) => d.name === name && !d.isDefault)
+    )
   }
 
   /** Finds where `name` exported from `file` is actually defined, following barrels. */
-  const resolveExport = (file: NodeId, name: string, visited = new Set<string>()): Resolved | null => {
+  const resolveExport = (
+    file: NodeId,
+    name: string,
+    visited = new Set<string>()
+  ): Resolved | null => {
     const key = `${file}#${name}`
     if (visited.has(key)) return null
     visited.add(key)
@@ -164,14 +186,27 @@ export function analyzeProject(root: string, onProgress?: (p: Progress) => void)
         ...d,
         usedBy: users,
         notUsedAnywhere:
-          d.exported && users.length === 0 && !local.has(d.name) && !isConvention && !(d.isDefault && !incoming.has(id))
+          d.exported &&
+          users.length === 0 &&
+          !local.has(d.name) &&
+          !isConvention &&
+          !(d.isDefault && !incoming.has(id))
       }
     })
-    return { id, kind: 'file', name: posix.basename(id), parent: posix.dirname(id), parsed: p.parsed, definitions }
+    return {
+      id,
+      kind: 'file',
+      name: posix.basename(id),
+      parent: posix.dirname(id),
+      parsed: p.parsed,
+      definitions
+    }
   })
 
   const contains: GraphEdge[] = [
-    ...folderNodes.filter((f) => f.parent !== null).map((f) => ({ kind: 'contains' as const, source: f.parent!, target: f.id })),
+    ...folderNodes
+      .filter((f) => f.parent !== null)
+      .map((f) => ({ kind: 'contains' as const, source: f.parent!, target: f.id })),
     ...fileNodes.map((f) => ({ kind: 'contains' as const, source: f.parent, target: f.id }))
   ]
 

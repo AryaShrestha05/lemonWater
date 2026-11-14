@@ -4,7 +4,10 @@ import { describe, expect, test } from 'vitest'
 import { scanFiles } from '../../src/core/scanFiles'
 import { makeFixture } from '../helpers/fixture'
 
-const ids = (root: string): string[] => scanFiles(root).files.map((f) => f.id).sort()
+const ids = (root: string): string[] =>
+  scanFiles(root)
+    .files.map((f) => f.id)
+    .sort()
 
 describe('scanFiles', () => {
   test('includes only js/ts family files', () => {

@@ -24,7 +24,9 @@ interface FolderConfig {
 function loadConfigs(absDir: string): FolderConfig[] {
   let names: string[]
   try {
-    names = readdirSync(absDir).filter((n) => CONFIG_RE.test(n)).sort()
+    names = readdirSync(absDir)
+      .filter((n) => CONFIG_RE.test(n))
+      .sort()
   } catch {
     return []
   }
@@ -102,4 +104,3 @@ export function createResolver(root: string, fileIds: Set<NodeId>): Resolver {
     return result
   }
 }
-
