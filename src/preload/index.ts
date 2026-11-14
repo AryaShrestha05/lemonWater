@@ -1,22 +1,23 @@
-import { contextBridge } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 
-// Custom APIs for renderer
-const api = {}
+// Mirrors GraphHost in src/renderer/src/host.ts.
+const lemon = {
+  pickFolder: (): Promise<string | null> => ipcRenderer.invoke('lemon:pickFolder'),
+  analyze: async (root: string, onProgress: (p: unknown) => void): Promise<unknown> => {
+    const listener = (_e: IpcRendererEvent, p: unknown): void => onProgress(p)
+    ipcRenderer.on('lemon:progress', listener)
+    try {
+      return await ipcRenderer.invoke('lemon:analyze', root)
+    } finally {
+      ipcRenderer.removeListener('lemon:progress', listener)
+    }
+  },
+  readFile: (root: string, fileId: string): Promise<string> => ipcRenderer.invoke('lemon:readFile', root, fileId)
+}
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    console.error(error)
-  }
+  contextBridge.exposeInMainWorld('lemon', lemon)
 } else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.api = api
+  // @ts-ignore (typed in renderer/src/host.ts)
+  window.lemon = lemon
 }

@@ -1,35 +1,90 @@
-import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
+import { useCallback, useState } from 'react'
+import type { Progress, ProjectGraph } from '../../core/types'
+import { host } from './host'
 
-function App(): React.JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+type State =
+  | { kind: 'idle'; error?: string }
+  | { kind: 'loading'; root: string; progress: Progress | null }
+  | { kind: 'empty'; root: string }
+  | { kind: 'ready'; graph: ProjectGraph }
 
-  return (
-    <>
-      <img alt="logo" className="logo" src={electronLogo} />
-      <div className="creator">Powered by electron-vite</div>
-      <div className="text">
-        Build an Electron app with <span className="react">React</span>
-        &nbsp;and <span className="ts">TypeScript</span>
-      </div>
-      <p className="tip">
-        Please try pressing <code>F12</code> to open the devTool
-      </p>
-      <div className="actions">
-        <div className="action">
-          <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-        </div>
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={ipcHandle}>
-            Send IPC
-          </a>
-        </div>
-      </div>
-      <Versions></Versions>
-    </>
-  )
+const PHASE_LABEL: Record<Progress['phase'], string> = {
+  scan: 'Finding files…',
+  parse: 'Reading code…',
+  link: 'Connecting files…'
 }
 
-export default App
+export default function App(): React.JSX.Element {
+  const [state, setState] = useState<State>({ kind: 'idle' })
+
+  const openFolder = useCallback(async () => {
+    const root = await host.pickFolder()
+    if (!root) {
+      setState((s) => (s.kind === 'ready' ? s : { kind: 'idle' }))
+      return
+    }
+    setState({ kind: 'loading', root, progress: null })
+    try {
+      const graph = await host.analyze(root, (progress) =>
+        setState((s) => (s.kind === 'loading' && s.root === root ? { ...s, progress } : s))
+      )
+      const hasFiles = graph.nodes.some((n) => n.kind === 'file')
+      setState(hasFiles ? { kind: 'ready', graph } : { kind: 'empty', root })
+    } catch (err) {
+      setState({ kind: 'idle', error: err instanceof Error ? err.message : String(err) })
+    }
+  }, [])
+
+  if (state.kind === 'idle') {
+    return (
+      <div className="center-screen">
+        <h1>lemonWater</h1>
+        <p>See how a codebase fits together: which files call which, and how.</p>
+        <button className="primary" onClick={openFolder}>
+          Open a project folder
+        </button>
+        {state.error && <p className="error">Couldn’t analyze that folder: {state.error}</p>}
+      </div>
+    )
+  }
+
+  if (state.kind === 'loading') {
+    const p = state.progress
+    const pct = p && p.total > 0 ? (p.done / p.total) * 100 : 0
+    return (
+      <div className="center-screen">
+        <p>{p ? PHASE_LABEL[p.phase] : 'Starting…'}</p>
+        <div className="progress">
+          <div style={{ width: `${pct}%` }} />
+        </div>
+        {p?.phase === 'parse' && (
+          <p>
+            {p.done} / {p.total} files
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (state.kind === 'empty') {
+    return (
+      <div className="center-screen">
+        <p>No JavaScript or TypeScript files found in {state.root}</p>
+        <button className="primary" onClick={openFolder}>
+          Open another folder
+        </button>
+      </div>
+    )
+  }
+
+  const files = state.graph.nodes.filter((n) => n.kind === 'file').length
+  const imports = state.graph.edges.filter((e) => e.kind === 'import').length
+  return (
+    <div className="center-screen">
+      <pre>
+        {files} files · {state.graph.nodes.length - files} folders · {imports} connections
+      </pre>
+      <button onClick={openFolder}>Open another folder</button>
+    </div>
+  )
+}
