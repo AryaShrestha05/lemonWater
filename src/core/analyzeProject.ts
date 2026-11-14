@@ -20,7 +20,9 @@ export const MAX_PARSE_BYTES = 1_000_000
 
 const CONVENTION_FILE = [
   /(^|\/)pages\//,
-  /(^|\/)app\/(.+\/)?(page|layout|route|loading|error|not-found|template|default)\.[jt]sx?$/
+  /(^|\/)app\/(.+\/)?(page|layout|route|loading|error|not-found|template|default)\.[jt]sx?$/,
+  // tool config files (vite, tailwind, eslint, pm2 ecosystem, …) are read by tools, not imported
+  /(^|\/)[^/]+\.config\.[cm]?[jt]s$/
 ]
 
 interface Resolved {

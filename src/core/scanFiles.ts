@@ -43,8 +43,14 @@ export function scanFiles(root: string): ScanResult {
       rules = [...inherited, { base: rel, ig: ignore().add(readFileSync(gitignore, 'utf8')) }]
     }
 
+    let entries
+    try {
+      entries = readdirSync(abs, { withFileTypes: true })
+    } catch {
+      return false // unreadable folder (permissions, vanished mid-scan): skip it, keep the rest
+    }
     let hasCode = false
-    for (const entry of readdirSync(abs, { withFileTypes: true })) {
+    for (const entry of entries) {
       if (entry.isSymbolicLink()) continue
       const childRel = rel ? posix.join(rel, entry.name) : entry.name
       if (entry.isDirectory()) {

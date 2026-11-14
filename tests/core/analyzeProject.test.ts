@@ -199,6 +199,19 @@ describe('analyzeProject', () => {
     expect(defOf(g, 'src/main.tsx', 'unusedNamed').notUsedAnywhere).toBe(true)
   })
 
+  test('config files never get the not-used note', () => {
+    const g = analyzeProject(
+      makeFixture({
+        'ecosystem.config.js': 'const apps = []\nmodule.exports = { apps }',
+        'tailwind.config.cjs': 'exports.theme = {}',
+        'front/vite.config.mjs': 'export const shared = 1'
+      })
+    )
+    expect(defOf(g, 'ecosystem.config.js', 'apps').notUsedAnywhere).toBe(false)
+    expect(defOf(g, 'tailwind.config.cjs', 'theme').notUsedAnywhere).toBe(false)
+    expect(defOf(g, 'front/vite.config.mjs', 'shared').notUsedAnywhere).toBe(false)
+  })
+
   test('large files are nodes but not parsed', () => {
     const g = analyzeProject(
       makeFixture({

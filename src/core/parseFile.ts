@@ -146,32 +146,40 @@ function bindingNames(name: ts.BindingName, out: Set<string>): void {
   else for (const el of name.elements) if (!ts.isOmittedExpression(el)) bindingNames(el.name, out)
 }
 
+/** Names declared directly by a scope-like node (params, block-level declarations, …), cached per node. */
+const scopeNameCache = new WeakMap<ts.Node, Set<string>>()
+function scopeNames(p: ts.Node): Set<string> {
+  const cached = scopeNameCache.get(p)
+  if (cached) return cached
+  const names = new Set<string>()
+  if (ts.isFunctionLike(p)) {
+    for (const param of p.parameters) bindingNames(param.name, names)
+    if ((ts.isFunctionExpression(p) || ts.isClassExpression(p)) && p.name) names.add(p.name.text)
+  }
+  if (ts.isCatchClause(p) && p.variableDeclaration) bindingNames(p.variableDeclaration.name, names)
+  if (
+    (ts.isForStatement(p) || ts.isForOfStatement(p) || ts.isForInStatement(p)) &&
+    p.initializer &&
+    ts.isVariableDeclarationList(p.initializer)
+  ) {
+    for (const d of p.initializer.declarations) bindingNames(d.name, names)
+  }
+  if (ts.isBlock(p) || ts.isCaseClause(p) || ts.isDefaultClause(p)) {
+    for (const st of p.statements) {
+      if (ts.isVariableStatement(st))
+        for (const d of st.declarationList.declarations) bindingNames(d.name, names)
+      if ((ts.isFunctionDeclaration(st) || ts.isClassDeclaration(st)) && st.name)
+        names.add(st.name.text)
+    }
+  }
+  scopeNameCache.set(p, names)
+  return names
+}
+
 /** True when `name` is redeclared by a scope between `node` and the top level. */
 function isShadowed(node: ts.Node, name: string): boolean {
   for (let p: ts.Node | undefined = node.parent; p && !ts.isSourceFile(p); p = p.parent) {
-    const names = new Set<string>()
-    if (ts.isFunctionLike(p)) {
-      for (const param of p.parameters) bindingNames(param.name, names)
-      if ((ts.isFunctionExpression(p) || ts.isClassExpression(p)) && p.name) names.add(p.name.text)
-    }
-    if (ts.isCatchClause(p) && p.variableDeclaration)
-      bindingNames(p.variableDeclaration.name, names)
-    if (
-      (ts.isForStatement(p) || ts.isForOfStatement(p) || ts.isForInStatement(p)) &&
-      p.initializer &&
-      ts.isVariableDeclarationList(p.initializer)
-    ) {
-      for (const d of p.initializer.declarations) bindingNames(d.name, names)
-    }
-    if (ts.isBlock(p) || ts.isCaseClause(p) || ts.isDefaultClause(p)) {
-      for (const st of p.statements) {
-        if (ts.isVariableStatement(st))
-          for (const d of st.declarationList.declarations) bindingNames(d.name, names)
-        if ((ts.isFunctionDeclaration(st) || ts.isClassDeclaration(st)) && st.name)
-          names.add(st.name.text)
-      }
-    }
-    if (names.has(name)) return true
+    if (scopeNames(p).has(name)) return true
   }
   return false
 }

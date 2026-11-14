@@ -187,4 +187,13 @@ describe('parseFile robustness', () => {
       locallyUsed: []
     })
   })
+
+  test('many references inside one huge function stay fast', { timeout: 60_000 }, () => {
+    const body = Array.from({ length: 12_000 }, (_, i) => `var v${i + 1}=e(v${i});`).join('')
+    const src = `var e=function(){};(function(){var v0=0;${body}})()`
+    expect(src.length).toBeGreaterThan(200_000)
+    const t0 = performance.now()
+    parseFile('big.js', src)
+    expect(performance.now() - t0).toBeLessThan(1500)
+  })
 })

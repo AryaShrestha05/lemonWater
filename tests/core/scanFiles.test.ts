@@ -1,4 +1,4 @@
-import { mkdirSync, symlinkSync } from 'node:fs'
+import { chmodSync, mkdirSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { scanFiles } from '../../src/core/scanFiles'
@@ -60,5 +60,15 @@ describe('scanFiles', () => {
     const root = makeFixture({ 'big.js': 'x'.repeat(1_500_000) })
     const big = scanFiles(root).files.find((f) => f.id === 'big.js')
     expect(big?.size).toBeGreaterThan(1_000_000)
+  })
+
+  test('an unreadable subfolder is skipped, not fatal', () => {
+    const root = makeFixture({ 'ok/a.ts': '', 'locked/b.ts': '' })
+    chmodSync(join(root, 'locked'), 0o000)
+    try {
+      expect(ids(root)).toEqual(['ok/a.ts'])
+    } finally {
+      chmodSync(join(root, 'locked'), 0o755)
+    }
   })
 })
