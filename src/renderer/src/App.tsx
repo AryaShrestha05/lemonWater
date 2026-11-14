@@ -167,6 +167,7 @@ function Workspace({ graph, onOpenFolder }: { graph: ProjectGraph; onOpenFolder:
             source={openFile.source}
             scrollTo={scrollTo}
             onNavigate={navigate}
+            onSelectFile={(id) => navigate(id, null)}
             onClose={() => select(null)}
           />
         ) : (

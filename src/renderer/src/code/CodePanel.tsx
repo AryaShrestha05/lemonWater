@@ -4,6 +4,7 @@ import { Decoration, EditorView, lineNumbers, highlightActiveLine, type Decorati
 import { javascript } from '@codemirror/lang-javascript'
 import { oneDark } from '@codemirror/theme-one-dark'
 import type { NodeId, Pos, ProjectGraph } from '../../../core/types'
+import ConnectionChips from './ConnectionChips'
 import { codeMarks, type CodeMark } from './codeMarks'
 
 export interface CodePanelProps {
@@ -13,6 +14,8 @@ export interface CodePanelProps {
   /** Scroll this position into view (center) when it changes. */
   scrollTo?: Pos | null
   onNavigate: (target: NodeId, pos: Pos | null) => void
+  /** A "uses" / "used by" chip was clicked. */
+  onSelectFile: (id: NodeId) => void
   onClose: () => void
 }
 
@@ -57,7 +60,7 @@ function buildDecorations(state: EditorState, marks: CodeMark[]): DecorationSet 
   return Decoration.set(ranges, true)
 }
 
-export default function CodePanel({ graph, fileId, source, scrollTo, onNavigate, onClose }: CodePanelProps): React.JSX.Element {
+export default function CodePanel({ graph, fileId, source, scrollTo, onNavigate, onSelectFile, onClose }: CodePanelProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const navigateRef = useRef(onNavigate)
@@ -124,6 +127,7 @@ export default function CodePanel({ graph, fileId, source, scrollTo, onNavigate,
           ✕
         </button>
       </header>
+      <ConnectionChips graph={graph} fileId={fileId} onSelect={onSelectFile} />
       <div className="code-host" ref={hostRef} />
     </aside>
   )
