@@ -170,6 +170,9 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
 
       const onResize = (): void => viewport.resize(el.clientWidth, el.clientHeight)
       app.renderer.on('resize', onResize)
+      // resizeTo only follows window resizes; the code panel changes our width too
+      const ro = new ResizeObserver(() => app.resize())
+      ro.observe(el)
 
       sim.restart()
 
@@ -260,6 +263,7 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
       return () => {
         app.ticker.remove(draw)
         app.renderer.off('resize', onResize)
+        ro.disconnect()
         sim.stop()
         focusRef.current = () => {}
         // the viewport unhooks itself from app.ticker, so it must go before the app
@@ -276,7 +280,12 @@ export default function GraphView({ graph, selectedId, onSelect, focusId }: Grap
   }, [graph])
 
   useEffect(() => {
-    if (focusId) focusRef.current(focusId)
+    if (!focusId) return
+    // wait a frame so a layout change (e.g. the code panel opening) has resized the viewport
+    let raf = requestAnimationFrame(() => {
+      raf = requestAnimationFrame(() => focusRef.current(focusId))
+    })
+    return () => cancelAnimationFrame(raf)
   }, [focusId])
 
   return <div ref={hostRef} style={{ position: 'absolute', inset: 0 }} />

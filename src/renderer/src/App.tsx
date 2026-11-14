@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react'
-import type { NodeId, Progress, ProjectGraph } from '../../core/types'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { NodeId, Pos, Progress, ProjectGraph } from '../../core/types'
+import CodePanel from './code/CodePanel'
 import GraphView from './graph/GraphView'
 import { host } from './host'
 
@@ -17,7 +18,6 @@ const PHASE_LABEL: Record<Progress['phase'], string> = {
 
 export default function App(): React.JSX.Element {
   const [state, setState] = useState<State>({ kind: 'idle' })
-  const [selectedId, setSelectedId] = useState<NodeId | null>(null)
 
   const openFolder = useCallback(async () => {
     const root = await host.pickFolder()
@@ -31,7 +31,6 @@ export default function App(): React.JSX.Element {
         setState((s) => (s.kind === 'loading' && s.root === root ? { ...s, progress } : s))
       )
       const hasFiles = graph.nodes.some((n) => n.kind === 'file')
-      setSelectedId(null)
       setState(hasFiles ? { kind: 'ready', graph } : { kind: 'empty', root })
     } catch (err) {
       setState({ kind: 'idle', error: err instanceof Error ? err.message : String(err) })
@@ -80,21 +79,104 @@ export default function App(): React.JSX.Element {
     )
   }
 
-  const files = state.graph.nodes.filter((n) => n.kind === 'file').length
-  const imports = state.graph.edges.filter((e) => e.kind === 'import').length
-  const rootName = state.graph.nodes.find((n) => n.id === '.')?.name ?? ''
+  return <Workspace graph={state.graph} onOpenFolder={openFolder} />
+}
+
+interface OpenFile {
+  id: NodeId
+  source: string
+}
+
+function Workspace({ graph, onOpenFolder }: { graph: ProjectGraph; onOpenFolder: () => void }): React.JSX.Element {
+  const [selectedId, setSelectedId] = useState<NodeId | null>(null)
+  const [focusId, setFocusId] = useState<NodeId | null>(null)
+  const [scrollTo, setScrollTo] = useState<Pos | null>(null)
+  const [openFile, setOpenFile] = useState<OpenFile | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const loadSeq = useRef(0)
+
+  const select = useCallback(
+    (id: NodeId | null, pos: Pos | null = null) => {
+      setSelectedId(id)
+      setScrollTo(pos)
+      setLoadError(null)
+      if (!id) {
+        setOpenFile(null)
+        return
+      }
+      const seq = ++loadSeq.current
+      host
+        .readFile(graph.root, id)
+        .then((source) => {
+          if (seq === loadSeq.current) setOpenFile({ id, source })
+        })
+        .catch((err) => {
+          if (seq === loadSeq.current) setLoadError(err instanceof Error ? err.message : String(err))
+        })
+    },
+    [graph.root]
+  )
+
+  const navigate = useCallback(
+    (target: NodeId, pos: Pos | null) => {
+      select(target, pos)
+      setFocusId(target)
+    },
+    [select]
+  )
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') select(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [select])
+
+  const files = graph.nodes.filter((n) => n.kind === 'file').length
+  const imports = graph.edges.filter((e) => e.kind === 'import').length
+  const rootName = graph.nodes.find((n) => n.id === '.')?.name ?? ''
+  const panelOpen = selectedId !== null
+
   return (
     <div className="workspace">
       <div className="graph-area">
-        <GraphView graph={state.graph} selectedId={selectedId} onSelect={setSelectedId} />
+        <GraphView
+          graph={graph}
+          selectedId={selectedId}
+          onSelect={(id) => {
+            select(id)
+            // the panel narrows the graph; keep the clicked file in view
+            if (id) setFocusId(id)
+          }}
+          focusId={focusId}
+        />
         <div className="topbar">
           <span className="project">{rootName}</span>
           <span className="stats">
             {files} files · {imports} connections
           </span>
-          <button onClick={openFolder}>Open folder…</button>
+          <button onClick={onOpenFolder}>Open folder…</button>
         </div>
       </div>
+      {panelOpen &&
+        (openFile && openFile.id === selectedId ? (
+          <CodePanel
+            graph={graph}
+            fileId={openFile.id}
+            source={openFile.source}
+            scrollTo={scrollTo}
+            onNavigate={navigate}
+            onClose={() => select(null)}
+          />
+        ) : (
+          <aside className="code-panel">
+            <header>
+              <span className="path">{selectedId}</span>
+            </header>
+            <p className="panel-note">{loadError ? `Couldn’t open this file: ${loadError}` : 'Loading…'}</p>
+          </aside>
+        ))}
     </div>
   )
 }

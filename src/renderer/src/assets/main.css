@@ -96,6 +96,7 @@ button.primary:hover {
   position: relative;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 .topbar {
   position: absolute;
@@ -114,5 +115,60 @@ button.primary:hover {
   font-weight: 600;
 }
 .topbar .stats {
+  color: var(--text-dim);
+}
+
+.code-panel {
+  position: relative;
+  z-index: 1;
+  width: 46%;
+  min-width: 420px;
+  max-width: 900px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  animation: panel-in 180ms ease-out;
+}
+@keyframes panel-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+.code-panel header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.code-panel .path {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+.code-panel .close {
+  padding: 2px 8px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-dim);
+}
+.code-panel .close:hover {
+  color: var(--text);
+  background: #2a2a31;
+}
+.code-host {
+  flex: 1;
+  min-height: 0;
+}
+.panel-note {
+  padding: 16px;
   color: var(--text-dim);
 }
