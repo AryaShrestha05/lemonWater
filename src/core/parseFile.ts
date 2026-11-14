@@ -16,6 +16,8 @@ export interface ParsedFile {
   parsed: boolean
   definitions: ParsedDefinition[]
   imports: ImportRecord[]
+  /** Names of definitions referenced elsewhere in this same file (export sites and self-recursion don't count). */
+  locallyUsed: string[]
 }
 
 /** Imports of these extensions are assets, not code, and never become edges. */
@@ -148,7 +150,7 @@ export function parseFile(fileName: string, source: string): ParsedFile {
   try {
     return parseUnsafe(fileName, source)
   } catch {
-    return { parsed: false, definitions: [], imports: [] }
+    return { parsed: false, definitions: [], imports: [], locallyUsed: [] }
   }
 }
 
@@ -164,7 +166,10 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
 
   // ---------- definitions ----------
   const defs = new Map<string, ParsedDefinition>()
-  const addDef = (name: string, kind: ParsedDefinition['kind'], pos: Pos, exported: boolean, isDefault: boolean): void => {
+  const declNodes = new Map<string, ts.Node>()
+  const exportSites = new Set<ts.Node>()
+  const addDef = (name: string, kind: ParsedDefinition['kind'], pos: Pos, exported: boolean, isDefault: boolean, decl?: ts.Node): void => {
+    if (decl && !declNodes.has(name)) declNodes.set(name, decl)
     const existing = defs.get(name)
     if (existing) {
       existing.exported ||= exported
@@ -193,24 +198,27 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
     const isDefault = hasModifier(st, ts.SyntaxKind.DefaultKeyword)
 
     if (ts.isFunctionDeclaration(st)) {
-      if (st.name) addDef(st.name.text, fnKind(st.name.text, st), posOf(st.name), exported, isDefault)
+      if (st.name) addDef(st.name.text, fnKind(st.name.text, st), posOf(st.name), exported, isDefault, st)
       else if (isDefault) addDef('default', 'function', anonDefaultPos(st), true, true)
     } else if (ts.isClassDeclaration(st)) {
-      if (st.name) addDef(st.name.text, 'class', posOf(st.name), exported, isDefault)
+      if (st.name) addDef(st.name.text, 'class', posOf(st.name), exported, isDefault, st)
       else if (isDefault) addDef('default', 'class', anonDefaultPos(st), true, true)
     } else if (ts.isVariableStatement(st)) {
       for (const d of st.declarationList.declarations) {
         if (!ts.isIdentifier(d.name) || isRequireCall(d.initializer)) continue
-        addDef(d.name.text, d.initializer ? kindOfExpr(d.name.text, d.initializer) : 'variable', posOf(d.name), exported, false)
+        addDef(d.name.text, d.initializer ? kindOfExpr(d.name.text, d.initializer) : 'variable', posOf(d.name), exported, false, d)
       }
     } else if (ts.isExportAssignment(st) && !st.isExportEquals) {
       const e = st.expression
+      if (ts.isIdentifier(e)) exportSites.add(e)
       deferredExports.push(() => {
         if (ts.isIdentifier(e) && markExported(e.text, true)) return
         addDef('default', kindOfExpr('default', e), anonDefaultPos(st), true, true)
       })
     } else if (ts.isExportDeclaration(st) && !st.moduleSpecifier && !st.isTypeOnly && st.exportClause && ts.isNamedExports(st.exportClause)) {
       for (const el of st.exportClause.elements) {
+        exportSites.add(el.name)
+        if (el.propertyName) exportSites.add(el.propertyName)
         if (el.isTypeOnly) continue
         const local = (el.propertyName ?? el.name).text
         const exportedAs = el.name.text
@@ -224,9 +232,10 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
       } else if (ts.isPropertyAccessExpression(left) && isModuleExports(left.expression)) {
         // exports.x = … / module.exports.x = …
         const name = left.name.text
+        if (ts.isIdentifier(right)) exportSites.add(right)
         deferredExports.push(() => {
           if (ts.isIdentifier(right) && right.text === name && markExported(name, false)) return
-          addDef(name, kindOfExpr(name, right), posOf(left.name), true, false)
+          addDef(name, kindOfExpr(name, right), posOf(left.name), true, false, st)
         })
       }
     }
@@ -235,6 +244,8 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
   function handleModuleExportsAssignment(right: ts.Expression): void {
     if (ts.isObjectLiteralExpression(right)) {
       for (const prop of right.properties) {
+        if (ts.isShorthandPropertyAssignment(prop)) exportSites.add(prop.name)
+        if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.initializer)) exportSites.add(prop.initializer)
         if (ts.isShorthandPropertyAssignment(prop)) {
           if (!markExported(prop.name.text, false)) addDef(prop.name.text, 'variable', posOf(prop.name), true, false)
         } else if (ts.isPropertyAssignment(prop) && (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name))) {
@@ -247,6 +258,7 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
       }
       return
     }
+    if (ts.isIdentifier(right)) exportSites.add(right)
     if (ts.isIdentifier(right) && markExported(right.text, true)) return
     if ((ts.isFunctionExpression(right) || ts.isClassExpression(right)) && right.name) {
       const name = right.name.text
@@ -345,8 +357,25 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
   const addRef = (rec: ImportRecord, key: string, pos: Pos): void => {
     ;(rec.refs[key] ??= []).push(pos)
   }
+  const locallyUsed = new Set<string>()
+  const isInside = (node: ts.Node, ancestor: ts.Node | undefined): boolean => {
+    for (let p: ts.Node | undefined = node; p; p = p.parent) if (p === ancestor) return true
+    return false
+  }
   const visit = (node: ts.Node): void => {
     if (skipNodes.has(node)) return
+    if (
+      ts.isIdentifier(node) &&
+      defs.has(node.text) &&
+      !locals.has(node.text) &&
+      !exportSites.has(node) &&
+      !isNonReferenceIdentifier(node) &&
+      !isInside(node, declNodes.get(node.text)) &&
+      !inTypePosition(node) &&
+      !isShadowed(node, node.text)
+    ) {
+      locallyUsed.add(node.text)
+    }
     if (ts.isIdentifier(node) && !isNonReferenceIdentifier(node)) {
       const binding = locals.get(node.text)
       if (binding && !inTypePosition(node) && !isShadowed(node, node.text)) {
@@ -370,5 +399,5 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
     (rec) => !(rec.kind === 'named' || rec.kind === 'namespace') || Object.keys(rec.refs).length > 0
   )
 
-  return { parsed: true, definitions: [...defs.values()], imports: kept }
+  return { parsed: true, definitions: [...defs.values()], imports: kept, locallyUsed: [...locallyUsed] }
 }

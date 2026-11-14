@@ -46,6 +46,23 @@ describe('parseFile definitions', () => {
   })
 })
 
+describe('parseFile locallyUsed', () => {
+  test('lists definitions referenced elsewhere in the same file', () => {
+    const src = 'export const LIMIT = 3\nexport function run() { return LIMIT }\nexport function idle() {}'
+    expect(parseFile('a.ts', src).locallyUsed).toEqual(['LIMIT'])
+  })
+
+  test('export sites do not count as use', () => {
+    const src = 'function a() {}\nfunction b() {}\nconst c = 1\nmodule.exports = { a, b: b }\nexport { c }\nexports.d = d\nfunction d() {}'
+    expect(parseFile('x.js', src).locallyUsed).toEqual([])
+    expect(parseFile('y.ts', 'function e() {}\nexport default e').locallyUsed).toEqual([])
+  })
+
+  test('recursion inside the definition itself does not count', () => {
+    expect(parseFile('a.ts', 'export function walk(n) { return n && walk(n - 1) }').locallyUsed).toEqual([])
+  })
+})
+
 describe('parseFile imports', () => {
   const imports = (src: string, file = 'a.ts') => parseFile(file, src).imports
 
@@ -132,6 +149,6 @@ describe('parseFile robustness', () => {
 
   test('a parser crash yields an unparsed result', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(parseFile('a.ts', null as any)).toEqual({ parsed: false, definitions: [], imports: [] })
+    expect(parseFile('a.ts', null as any)).toEqual({ parsed: false, definitions: [], imports: [], locallyUsed: [] })
   })
 })
