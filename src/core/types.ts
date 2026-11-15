@@ -35,6 +35,8 @@ export interface FileNode {
   parent: NodeId
   parsed: boolean
   definitions: SymbolDef[]
+  /** The author's own one-line description (first sentence of the header comment). */
+  doc?: string | null
 }
 
 export type GraphNode = FolderNode | FileNode

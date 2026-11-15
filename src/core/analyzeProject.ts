@@ -207,7 +207,8 @@ export function analyzeProject(root: string, onProgress?: (p: Progress) => void)
       name: posix.basename(id),
       parent: posix.dirname(id),
       parsed: p.parsed,
-      definitions
+      definitions,
+      doc: p.docComment
     }
   })
 
