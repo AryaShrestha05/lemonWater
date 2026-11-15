@@ -13,6 +13,7 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import type { NodeId, Pos, ProjectGraph } from '../../../core/types'
 import ConnectionChips from './ConnectionChips'
 import { codeMarks, lineNotes, type CodeMark, type LineNote } from './codeMarks'
+import { fileSummary } from '../../../core/summarize'
 
 export interface CodePanelProps {
   graph: ProjectGraph
@@ -126,6 +127,7 @@ export default function CodePanel({
   })
 
   const marks = useMemo(() => codeMarks(graph, fileId), [graph, fileId])
+  const summary = useMemo(() => fileSummary(graph, fileId), [graph, fileId])
   const notes = useMemo(() => lineNotes(graph, fileId), [graph, fileId])
 
   useEffect(() => {
@@ -192,6 +194,7 @@ export default function CodePanel({
           ✕
         </button>
       </header>
+      {summary && <p className="panel-summary">{summary}</p>}
       <ConnectionChips graph={graph} fileId={fileId} onSelect={onSelectFile} />
       <div className="code-host" ref={hostRef} />
     </aside>

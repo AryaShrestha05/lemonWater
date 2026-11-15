@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Application, Circle, Container, Graphics, Sprite, Text, type Texture } from 'pixi.js'
 import { Viewport } from 'pixi-viewport'
 import type { NodeId, ProjectGraph } from '../../../core/types'
+import { fileSummary, folderSummary } from '../../../core/summarize'
 import { createLayout, type SimNode } from './layout'
 import { neighborhood, type Neighborhood } from './neighborhood'
 import { prewarmInWorker } from './prewarm'
@@ -55,6 +56,7 @@ export default function GraphView({
   const onSelectRef = useRef(onSelect)
   const focusRef = useRef<(id: NodeId) => void>(() => {})
   const [arranging, setArranging] = useState(true)
+  const [hoverCard, setHoverCard] = useState<{ id: NodeId; x: number; y: number } | null>(null)
 
   // the Pixi draw loop reads the latest props through these refs
   useLayoutEffect(() => {
@@ -147,9 +149,13 @@ export default function GraphView({
         sprite.cursor = n.kind === 'file' ? 'pointer' : 'default'
         // generous hit area in texture space (scaled with the sprite)
         sprite.hitArea = new Circle(0, 0, TEX_R * Math.max(1.6, 10 / n.radius))
-        sprite.on('pointerover', () => (hoverId = n.id))
+        sprite.on('pointerover', (e) => {
+          hoverId = n.id
+          setHoverCard({ id: n.id, x: e.global.x, y: e.global.y })
+        })
         sprite.on('pointerout', () => {
           if (hoverId === n.id) hoverId = null
+          setHoverCard((c) => (c?.id === n.id ? null : c))
         })
         nodeLayer.addChild(sprite)
 
@@ -372,6 +378,35 @@ export default function GraphView({
     <>
       <div ref={hostRef} style={{ position: 'absolute', inset: 0 }} />
       {arranging && <div className="arranging">Arranging…</div>}
+      {hoverCard && <HoverCard graph={graph} {...hoverCard} />}
     </>
+  )
+}
+
+/** Small card next to the cursor: the node's name and its one-line summary. */
+function HoverCard({
+  graph,
+  id,
+  x,
+  y
+}: {
+  graph: ProjectGraph
+  id: NodeId
+  x: number
+  y: number
+}): React.JSX.Element | null {
+  const node = graph.nodes.find((n) => n.id === id)
+  if (!node) return null
+  const isFolder = node.kind === 'folder'
+  const summary = isFolder ? folderSummary(graph, id) : fileSummary(graph, id)
+  return (
+    <div className="hover-card" style={{ left: x + 14, top: y + 14 }}>
+      <div className="hover-title">
+        {node.name}
+        {isFolder ? '/' : ''}
+      </div>
+      {summary && <div className="hover-summary">{summary}</div>}
+      {node.id !== '.' && node.id !== node.name && <div className="hover-path">{node.id}</div>}
+    </div>
   )
 }
