@@ -1,0 +1,13 @@
+# Claude / Superpowers tooling (brainstorm mockups, specs, plans, local settings)
+.superpowers/
+docs/superpowers/
+.claude/
+CLAUDE.local.md
+
+# App build output
+node_modules/
+out/
+dist/
+.DS_Store
+*.log*
+.eslintcache
