@@ -184,7 +184,8 @@ describe('parseFile robustness', () => {
       parsed: false,
       definitions: [],
       imports: [],
-      locallyUsed: []
+      locallyUsed: [],
+      docComment: null
     })
   })
 
@@ -195,5 +196,53 @@ describe('parseFile robustness', () => {
     const t0 = performance.now()
     parseFile('big.js', src)
     expect(performance.now() - t0).toBeLessThan(1500)
+  })
+})
+
+describe('parseFile docComment', () => {
+  const doc = (src: string, file = 'a.ts') => parseFile(file, src).docComment
+
+  test('a comment at the very top of the file', () => {
+    expect(doc("// Reads files from disk.\nimport x from './x'\nx()")).toBe(
+      'Reads files from disk.'
+    )
+  })
+
+  test('a detached comment after the imports', () => {
+    const src =
+      "import a from './a'\n\n// The switchboard: picks providers. More detail here.\n\nconst P = { a }"
+    expect(doc(src)).toBe('The switchboard: picks providers.')
+  })
+
+  test('a comment attached to a function is not the file summary', () => {
+    expect(doc("import a from './a'\n// adds one\nfunction f() { a() }")).toBeNull()
+  })
+
+  test('JSDoc header, first sentence only', () => {
+    expect(doc('/**\n * Walks the tree.\n * More words.\n */\n\nexport function x() {}')).toBe(
+      'Walks the tree.'
+    )
+  })
+
+  test('consecutive line comments are joined', () => {
+    const src =
+      '// Every call the editor makes\n// to the backend, in one place.\n\nexport function b() {}'
+    expect(doc(src)).toBe('Every call the editor makes to the backend, in one place.')
+  })
+
+  test('lint, license and directive noise is skipped', () => {
+    expect(doc('/* eslint-disable */\n// Copyright 2024 Someone\n\nexport const a = 1')).toBeNull()
+    expect(doc("'use strict'\n\n// Server entry.\n\nconst a = 1", 'x.js')).toBe('Server entry.')
+  })
+
+  test('long comments are cut to 140 characters', () => {
+    const long = '// ' + 'word '.repeat(60) + '\n\nconst a = 1'
+    const d = doc(long)!
+    expect(d.length).toBeLessThanOrEqual(140)
+    expect(d.endsWith('…')).toBe(true)
+  })
+
+  test('no comment means null', () => {
+    expect(doc('export const a = 1')).toBeNull()
   })
 })

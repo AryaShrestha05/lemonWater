@@ -18,6 +18,8 @@ export interface ParsedFile {
   imports: ImportRecord[]
   /** Names of definitions referenced elsewhere in this same file (export sites and self-recursion don't count). */
   locallyUsed: string[]
+  /** First sentence of the file's header comment, if it has one. */
+  docComment: string | null
 }
 
 /** Imports of these extensions are assets, not code, and never become edges. */
@@ -220,7 +222,7 @@ export function parseFile(fileName: string, source: string): ParsedFile {
   try {
     return parseUnsafe(fileName, source)
   } catch {
-    return { parsed: false, definitions: [], imports: [], locallyUsed: [] }
+    return { parsed: false, definitions: [], imports: [], locallyUsed: [], docComment: null }
   }
 }
 
@@ -541,9 +543,84 @@ function parseUnsafe(fileName: string, source: string): ParsedFile {
   )
 
   return {
+    docComment: fileDocComment(sf, source),
     parsed: true,
     definitions: [...defs.values()],
     imports: kept,
     locallyUsed: [...locallyUsed]
   }
+}
+
+const DOC_MAX = 140
+const NOISE = /eslint|prettier|@ts-|copyright|license|@flow|@jsx|istanbul|c8 ignore/i
+
+function isImportLike(st: ts.Statement): boolean {
+  if (ts.isImportDeclaration(st) || ts.isImportEqualsDeclaration(st)) return true
+  if (ts.isExportDeclaration(st) && st.moduleSpecifier) return true
+  if (ts.isExpressionStatement(st)) {
+    if (ts.isStringLiteral(st.expression)) return true // 'use strict' and friends
+    if (isRequireCall(st.expression)) return true
+  }
+  if (ts.isVariableStatement(st))
+    return st.declarationList.declarations.every((d) => isRequireCall(d.initializer))
+  return false
+}
+
+/** Turns one comment block's raw text into plain words. */
+function cleanComment(raw: string): string {
+  return raw
+    .replace(/^\/\*\*?|\*\/$/g, '')
+    .split('\n')
+    .map((l) => l.replace(/^\s*(\/\/+|\*)?\s?/, '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function firstSentence(text: string): string {
+  const m = /^(.+?[.!?])(\s|$)/.exec(text)
+  const s = m ? m[1] : text
+  return s.length > DOC_MAX ? s.slice(0, DOC_MAX - 1).trimEnd() + '…' : s
+}
+
+/**
+ * The file's own description: a comment block at the very top of the file, or a block after the
+ * imports that is separated from the next statement by a blank line (so it isn't about that statement).
+ */
+function fileDocComment(sf: ts.SourceFile, source: string): string | null {
+  const firstCode = sf.statements.find((st) => !isImportLike(st))
+  const spots = [0]
+  if (firstCode) spots.push(firstCode.getFullStart())
+  for (const spot of spots) {
+    const ranges = ts.getLeadingCommentRanges(source, spot) ?? []
+    // group comments into blocks separated by blank lines
+    const blocks: { text: string; end: number }[] = []
+    for (const r of ranges) {
+      const text = source.slice(r.pos, r.end)
+      const prev = blocks[blocks.length - 1]
+      const gap = prev ? source.slice(prev.end, r.pos) : ''
+      if (
+        prev &&
+        (gap.match(/\n/g) ?? []).length < 2 &&
+        r.kind === ts.SyntaxKind.SingleLineCommentTrivia
+      ) {
+        prev.text += '\n' + text
+        prev.end = r.end
+      } else {
+        blocks.push({ text, end: r.end })
+      }
+    }
+    const nextCodeStart =
+      spot === 0 ? (sf.statements[0]?.getStart(sf) ?? source.length) : firstCode!.getStart(sf)
+    for (const b of blocks) {
+      const words = cleanComment(b.text)
+      if (!words || NOISE.test(words)) continue
+      const detached = (source.slice(b.end, nextCodeStart).match(/\n/g) ?? []).length >= 2
+      const atTopBeforeImports =
+        spot === 0 && sf.statements[0] !== undefined && sf.statements[0] !== firstCode
+      if (detached || atTopBeforeImports || !firstCode) return firstSentence(words)
+    }
+  }
+  return null
 }

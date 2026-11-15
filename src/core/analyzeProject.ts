@@ -40,7 +40,13 @@ export function analyzeProject(root: string, onProgress?: (p: Progress) => void)
   const total = scan.files.length
   scan.files.forEach((f, i) => {
     if (f.size > MAX_PARSE_BYTES) {
-      parsed.set(f.id, { parsed: false, definitions: [], imports: [], locallyUsed: [] })
+      parsed.set(f.id, {
+        parsed: false,
+        definitions: [],
+        imports: [],
+        locallyUsed: [],
+        docComment: null
+      })
     } else {
       let source: string | null = null
       try {
@@ -51,7 +57,7 @@ export function analyzeProject(root: string, onProgress?: (p: Progress) => void)
       parsed.set(
         f.id,
         source === null
-          ? { parsed: false, definitions: [], imports: [], locallyUsed: [] }
+          ? { parsed: false, definitions: [], imports: [], locallyUsed: [], docComment: null }
           : parseFile(f.id, source)
       )
     }
